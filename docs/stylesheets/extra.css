@@ -1,0 +1,19 @@
+/* Brand logo in the header */
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  height: 2rem;
+  width: auto;
+}
+
+/* Home page hero logo */
+.np-hero {
+  text-align: center;
+  margin: 0.5rem 0 1.5rem;
+}
+
+.np-hero img {
+  max-width: 200px;
+  width: 40%;
+  height: auto;
+  border-radius: 1.25rem;
+}

@@ -1,0 +1,27 @@
+# Xcode / macOS
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# MkDocs
+site/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# OS / IDE
+.DS_Store
+.idea/
+*.swp
+
+buildServer.json
+scripts/
