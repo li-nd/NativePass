@@ -19,10 +19,17 @@ Native macOS client for [pass](https://www.passwordstore.org/) — browse nested
 
 ## Quick start
 
-1. Install [requirements](requirements.md)
-2. Follow [setup](setup.md) (store + pinentry)
-3. Optional: install [plugins](plugins.md)
-4. Open NativePass and check **Settings → Diagnostics**
+1. Install NativePass:
+   ```bash
+   brew tap li-nd/apps
+   brew trust li-nd/apps
+   brew install --cask nativepass
+   ```
+   Or download from [GitHub Releases](https://github.com/li-nd/NativePass/releases). Tap: [homebrew-apps](https://github.com/li-nd/homebrew-apps).
+2. Install [requirements](requirements.md)
+3. Follow [setup](setup.md) (store + pinentry)
+4. Optional: install [plugins](plugins.md)
+5. Open NativePass and check **Settings → Diagnostics**
 
 ## Docs
 

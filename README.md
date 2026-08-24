@@ -19,6 +19,7 @@
 
 <p align="center">
   <a href="https://np.developer.pm/">Documentation</a> ·
+  <a href="#install">Install</a> ·
   <a href="https://github.com/li-nd/NativePass/issues">Issues</a> ·
   <a href="#build">Build</a>
 </p>
@@ -36,6 +37,18 @@
 | **OTP** | TOTP codes via [`pass-otp`](https://github.com/tadfisher/pass-otp) |
 | **Sync** | Git Pull / Push from the sidebar |
 | **Quick Access** | Global hotkey `⌥⌘P` for fast copy |
+
+## Install
+
+```bash
+brew tap li-nd/apps
+brew trust li-nd/apps
+brew install --cask nativepass
+```
+
+Tap: [li-nd/homebrew-apps](https://github.com/li-nd/homebrew-apps). Or download a zip from [Releases](https://github.com/li-nd/NativePass/releases).
+
+> Builds are not notarized. If macOS blocks the app: **System Settings → Privacy & Security → Open Anyway**, or right-click → **Open**.
 
 ## Requirements
 
@@ -83,7 +96,7 @@ Published site: **[np.developer.pm](https://np.developer.pm/)**
 
 | Page | Topic |
 |------|--------|
-| [Requirements](https://np.developer.pm/requirements/) | Homebrew packages |
+| [Requirements](https://np.developer.pm/requirements/) | Install app + Homebrew packages |
 | [Setup](https://np.developer.pm/setup/) | Store init & pinentry |
 | [Plugins](https://np.developer.pm/plugins/) | pass-otp and more |
 | [Usage](https://np.developer.pm/usage/) | Everyday workflow |

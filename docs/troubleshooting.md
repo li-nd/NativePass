@@ -12,6 +12,7 @@ Use **Re-run Checks** and **Test Decrypt** after fixing tools.
 
 | Symptom | What to try |
 |---------|-------------|
+| **App blocked / can’t be opened** | Unsigned (not notarized) build — **Privacy & Security → Open Anyway**, or right-click → **Open** |
 | **Setup Required / pass not found** | `brew install pass` and ensure `/opt/homebrew/bin` is on PATH for GUI apps |
 | **Store not initialized** | `pass init YOUR_GPG_KEY_ID` |
 | **Decryption failed / no pinentry** | Install `pinentry-mac` and set `pinentry-program` — see [Setup](setup.md) |
@@ -19,6 +20,7 @@ Use **Re-run Checks** and **Test Decrypt** after fixing tools.
 | **pass ls / CLI errors about getopt** | `brew install gnu-getopt` |
 | **Sync disabled or missing** | Store must be a Git repo (`pass git init`) |
 | **Wrong `pass` binary (e.g. gopass)** | Prefer Homebrew `pass`; check Diagnostics → Pass → Path |
+| **brew cask not found / tap issues** | `brew tap li-nd/apps` then `brew trust li-nd/apps` — see [homebrew-apps](https://github.com/li-nd/homebrew-apps) |
 
 ## App Lock vs decrypt prompts
 

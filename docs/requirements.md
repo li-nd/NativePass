@@ -2,6 +2,16 @@
 
 NativePass is a GUI around tools you install separately.
 
+## Install the app
+
+```bash
+brew tap li-nd/apps
+brew trust li-nd/apps
+brew install --cask nativepass
+```
+
+Or use [GitHub Releases](https://github.com/li-nd/NativePass/releases). Tap: [li-nd/homebrew-apps](https://github.com/li-nd/homebrew-apps). Requires **macOS Tahoe** or newer.
+
 ## Required
 
 | Tool | Install | Purpose |
