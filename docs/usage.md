@@ -40,6 +40,12 @@ If the store is a Git repository:
 
 Global hotkey (default **⌥⌘P**) opens a compact search window — useful for fast copy without the full UI.
 
+| Shortcut | Action |
+|----------|--------|
+| **esc** / **⌘W** / ✕ | Close without decrypting |
+| **↵** | Decrypt and copy password |
+| **⌘O** | Open the entry in the main window |
+
 Configure under **Settings → General → Quick Access**.
 
 ## App Lock

@@ -7,9 +7,9 @@ struct QuickAccessView: View {
 
     @State private var searchText = ""
     @State private var selectedEntry: String?
-    @State private var loadedEntry: PassEntry?
     @State private var isLoading = false
     @State private var decryptErrorSummary: String?
+    @State private var closeAfterCopyTask: Task<Void, Never>?
     @FocusState private var isSearchFocused: Bool
 
     private var filteredEntries: [String] {
@@ -20,83 +20,38 @@ struct QuickAccessView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                TextField("Search entries…", text: $searchText)
-                    .textFieldStyle(.plain)
-                    .focused($isSearchFocused)
-                if isLoading {
-                    ProgressView()
-                        .controlSize(.small)
-                }
-            }
-            .padding(12)
-
+            header
             Divider()
-
-            List(filteredEntries.prefix(50), id: \.self, selection: $selectedEntry) { entry in
-                HStack {
-                    EntryListRow(
-                        entry: entry,
-                        username: appState.metadataCache.metadata(for: entry)?.username,
-                        hasURL: appState.metadataCache.metadata(for: entry)?.url != nil,
-                        hasOTP: appState.metadataCache.metadata(for: entry)?.hasOTP == true
-                    )
-                    Spacer()
-                    Button {
-                        Task { await copyPassword(for: entry) }
-                    } label: {
-                        Image(systemName: "doc.on.doc")
-                    }
-                    .buttonStyle(.borderless)
-                    .help("Copy Password")
-                }
-                .tag(entry)
-            }
-            .listStyle(.plain)
-            .frame(maxHeight: 240)
-            .onChange(of: selectedEntry) { _, _ in
-                loadedEntry = nil
-                decryptErrorSummary = nil
-            }
-
+            resultsList
             Divider()
-
-            HStack {
-                if let decryptErrorSummary {
-                    Text(decryptErrorSummary)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .lineLimit(2)
-                } else {
-                    Text("↵ copy password · ⌘O open")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
-                Spacer()
-                Button("Open in NativePass") {
-                    openInMainWindow()
-                }
-                .disabled(selectedEntry == nil)
-            }
-            .padding(12)
+            footer
         }
-        .frame(width: 380, height: 400)
+        .frame(width: 420, height: 420)
         .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .defaultFocus($isSearchFocused, true)
         .clipboardToast(message: appState.clipboard.lastCopyMessage) {
             appState.clipboard.dismissMessage()
         }
-        .onAppear { isSearchFocused = true }
+        .onAppear { requestSearchFocus() }
+        .task { requestSearchFocus() }
+        .onDisappear { closeAfterCopyTask?.cancel() }
+        .onKeyPress(.escape) {
+            close()
+            return .handled
+        }
         .onKeyPress(.return) {
             if let selectedEntry {
                 Task { await copyPassword(for: selectedEntry) }
             }
             return .handled
         }
-        .onKeyPress(keys: [.init("o")], phases: .down) { press in
-            if press.modifiers.contains(.command), selectedEntry != nil {
+        .onKeyPress(keys: [.init("o"), .init("w")], phases: .down) { press in
+            guard press.modifiers.contains(.command) else { return .ignored }
+            if press.key == .init("w") {
+                close()
+                return .handled
+            }
+            if selectedEntry != nil {
                 openInMainWindow()
                 return .handled
             }
@@ -104,15 +59,144 @@ struct QuickAccessView: View {
         }
     }
 
+    private var header: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .font(.body.weight(.medium))
+                .foregroundStyle(.secondary)
+
+            TextField("Search entries…", text: $searchText)
+                .textFieldStyle(.plain)
+                .font(.title3)
+                .focused($isSearchFocused)
+                .focusable(true)
+
+            if isLoading {
+                ProgressView()
+                    .controlSize(.small)
+            }
+
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                    isSearchFocused = true
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Clear Search")
+            }
+
+            Button {
+                close()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 22, height: 22)
+                    .background(Circle().fill(.quaternary))
+            }
+            .buttonStyle(.plain)
+            .help("Close (Esc)")
+            .accessibilityLabel("Close")
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+
+    private var resultsList: some View {
+        Group {
+            if filteredEntries.isEmpty {
+                ContentUnavailableView {
+                    Label("No Entries", systemImage: "key.slash")
+                } description: {
+                    Text(searchText.isEmpty ? "Your password store is empty." : "No matches for “\(searchText)”.")
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List(filteredEntries.prefix(50), id: \.self, selection: $selectedEntry) { entry in
+                    QuickAccessRow(
+                        entry: entry,
+                        username: appState.metadataCache.metadata(for: entry)?.username,
+                        hasURL: appState.metadataCache.metadata(for: entry)?.url != nil,
+                        hasOTP: appState.metadataCache.metadata(for: entry)?.hasOTP == true,
+                        onCopy: { Task { await copyPassword(for: entry) } }
+                    )
+                    .tag(entry)
+                    .listRowInsets(EdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10))
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+            }
+        }
+        .frame(maxHeight: .infinity)
+        .onChange(of: selectedEntry) { _, _ in
+            decryptErrorSummary = nil
+        }
+        .onChange(of: searchText) { _, _ in
+            if let selectedEntry, !filteredEntries.contains(selectedEntry) {
+                self.selectedEntry = filteredEntries.first
+            } else if selectedEntry == nil {
+                selectedEntry = filteredEntries.first
+            }
+        }
+    }
+
+    private var footer: some View {
+        HStack(alignment: .center, spacing: 12) {
+            if let decryptErrorSummary {
+                Text(decryptErrorSummary)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .lineLimit(2)
+            } else {
+                Text("esc close · ↵ copy · ⌘O open")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+
+            Spacer(minLength: 8)
+
+            Button("Open in NativePass") {
+                openInMainWindow()
+            }
+            .buttonStyle(.borderless)
+            .disabled(selectedEntry == nil)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    private func requestSearchFocus() {
+        isSearchFocused = true
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(50))
+            isSearchFocused = true
+        }
+    }
+
+    private func close() {
+        closeAfterCopyTask?.cancel()
+        appState.clipboard.dismissMessage()
+        onClose()
+    }
+
     private func copyPassword(for entry: String) async {
+        closeAfterCopyTask?.cancel()
         isLoading = true
         decryptErrorSummary = nil
         defer { isLoading = false }
         do {
             let loaded = try await appState.loadEntry(entry)
-            loadedEntry = loaded
             appState.metadataCache.update(from: loaded)
             appState.clipboard.copy(loaded.password)
+            closeAfterCopyTask = Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(450))
+                guard !Task.isCancelled else { return }
+                close()
+            }
         } catch {
             let guide = DecryptFailureAnalyzer.analyze(
                 error: error,
@@ -125,11 +209,68 @@ struct QuickAccessView: View {
 
     private func openInMainWindow() {
         guard let selectedEntry else { return }
+        closeAfterCopyTask?.cancel()
         appState.requestSelectEntry(selectedEntry)
         NSApp.activate(ignoringOtherApps: true)
         if let window = NSApp.windows.first(where: { $0.canBecomeMain }) {
             window.makeKeyAndOrderFront(nil)
         }
-        onClose()
+        close()
+    }
+}
+
+private struct QuickAccessRow: View {
+    let entry: String
+    let username: String?
+    let hasURL: Bool
+    let hasOTP: Bool
+    let onCopy: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: hasURL ? "globe" : "key.fill")
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .frame(width: 22)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(PassFolderNode.entryDisplayName(entry))
+                    .font(.body.weight(.medium))
+                    .lineLimit(1)
+
+                if let username, !username.isEmpty {
+                    Text(username)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                } else if entry.contains("/") {
+                    Text(entry)
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer(minLength: 8)
+
+            if hasOTP {
+                Image(systemName: "clock.badge.checkmark")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Button(action: onCopy) {
+                Image(systemName: "doc.on.doc")
+                    .font(.body)
+            }
+            .buttonStyle(.borderless)
+            .help("Copy Password")
+            .opacity(isHovered ? 1 : 0.35)
+        }
+        .padding(.vertical, 2)
+        .contentShape(Rectangle())
+        .onHover { isHovered = $0 }
     }
 }
