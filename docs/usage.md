@@ -36,6 +36,10 @@ If the store is a Git repository:
 
 ![Git sync](screenshots/2-push.png)
 
+## App Lock
+
+When App Lock is enabled, unlocking restores your previous sidebar folder, selected entry, and search. Decrypted entry contents are cleared on lock and loaded again when you open an entry.
+
 ## Quick Access
 
 Global hotkey (default **⌥⌘P**) opens a compact search window — useful for fast copy without the full UI.

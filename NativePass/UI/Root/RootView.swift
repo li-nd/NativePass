@@ -28,6 +28,7 @@ struct RootView: View {
             if newPhase == .background {
                 appState.appLock.lockFromBackground()
             } else if newPhase == .active {
+                appState.appLock.prepareAutoUnlockAfterReturningToForeground()
                 appState.appLock.checkIdleLock()
                 if !appState.appLock.isBlocking {
                     Task { await appState.refreshOnActivate() }

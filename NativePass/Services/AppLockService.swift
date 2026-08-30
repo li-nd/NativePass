@@ -33,6 +33,8 @@ final class AppLockService {
     private var lastActivity = Date()
     private var hasAttemptedAutoUnlock = false
     private var autoUnlockEnabledForCurrentSession = false
+    /// Set by background lock; auto Touch ID runs only after the app becomes active again.
+    private var pendingAutoUnlockOnActivate = false
 
     var isBlocking: Bool {
         isEnabled && isLocked
@@ -61,6 +63,7 @@ final class AppLockService {
         guard isEnabled, !isLocked else { return }
         let elapsed = Date().timeIntervalSince(lastActivity)
         if elapsed >= TimeInterval(timeout.rawValue * 60) {
+            pendingAutoUnlockOnActivate = false
             setLocked(true, allowsAutoUnlock: true)
         }
     }
@@ -68,17 +71,33 @@ final class AppLockService {
     /// User chose Lock Now from the menu — no automatic Touch ID prompt.
     func lockManually() {
         guard isEnabled else { return }
+        pendingAutoUnlockOnActivate = false
         setLocked(true, allowsAutoUnlock: false)
     }
 
-    /// App moved to background — auto-unlock when user returns.
+    /// App hid / went to background — lock now, prompt only when the user returns.
     func lockFromBackground() {
         guard isEnabled else { return }
-        setLocked(true, allowsAutoUnlock: true)
+        if isLocked {
+            // Already locked (e.g. Lock Now, then ⌘H): still defer any auto prompt until activate.
+            pendingAutoUnlockOnActivate = true
+            autoUnlockEnabledForCurrentSession = false
+            return
+        }
+        pendingAutoUnlockOnActivate = true
+        setLocked(true, allowsAutoUnlock: false)
+    }
+
+    /// Call when `scenePhase` becomes `.active` so background locks can auto-prompt once.
+    func prepareAutoUnlockAfterReturningToForeground() {
+        guard isBlocking, pendingAutoUnlockOnActivate else { return }
+        pendingAutoUnlockOnActivate = false
+        beginLockSession(allowsAutoUnlock: true)
     }
 
     func enableLock() {
         isEnabled = true
+        pendingAutoUnlockOnActivate = false
         setLocked(true, allowsAutoUnlock: false)
         lastActivity = Date()
     }
@@ -94,6 +113,7 @@ final class AppLockService {
         }
         isEnabled = false
         isLocked = false
+        pendingAutoUnlockOnActivate = false
         return true
     }
 
@@ -187,6 +207,7 @@ final class AppLockService {
 
     private func unlockAfterAuthentication() {
         isLocked = false
+        pendingAutoUnlockOnActivate = false
         lastActivity = Date()
     }
 }

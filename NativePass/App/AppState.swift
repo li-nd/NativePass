@@ -24,6 +24,12 @@ final class AppState {
     private(set) var isRunningFullDiagnostics = false
     private(set) var pendingSelectEntry: String?
 
+    /// Navigation state survives App Lock (MainView is torn down while locked).
+    var selectedCategory: SidebarSelection = .all
+    var selectedEntry: String?
+    var searchText = ""
+    var entrySortOrder: EntrySortOrder = .byName
+
     private var storeWatcher: StoreFileWatcher?
 
     var isReady: Bool {
@@ -116,6 +122,8 @@ final class AppState {
     @MainActor
     func requestSelectEntry(_ name: String) {
         pendingSelectEntry = name
+        selectedCategory = .all
+        searchText = ""
     }
 
     @MainActor
