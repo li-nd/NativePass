@@ -16,10 +16,12 @@ struct MainView: View {
     }
 
     private var displayedEntries: [String] {
-        if appState.searchText.isEmpty {
+        let query = appState.searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if query.isEmpty {
             return categoryEntries
         }
-        return appState.entries.filter { $0.localizedCaseInsensitiveContains(appState.searchText) }
+        // Search ignores the sidebar category and ranks the whole store.
+        return EntrySearch.ranked(appState.entries, query: query)
     }
 
     private var suggestedPath: String? {

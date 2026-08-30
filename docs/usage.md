@@ -1,10 +1,13 @@
 # Usage
 
+Everyday workflow in the main window. Related topics: [Search](search.md), [Quick Access](quick-access.md), [App Lock](app-lock.md).
+
 ## Browse and open entries
 
 - Sidebar folders mirror your store paths (including nested folders).
 - Select an entry to decrypt and view details.
 - Click a password or field to copy. Clipboard auto-clear is configurable in Settings.
+- Find entries with [Search](search.md) (fuzzy match on paths).
 
 ![Nested folders](screenshots/4-nested-folders.png)
 
@@ -35,27 +38,3 @@ If the store is a Git repository:
 - **Settings → Sync** shows branch / ahead / behind.
 
 ![Git sync](screenshots/2-push.png)
-
-## App Lock
-
-Enable under **Settings → Security**.
-
-- Locks the UI after idle timeout or **Lock Now** (`⌃⌘L`).
-- Hiding the app (**⌘H**) or switching away does **not** lock NativePass.
-- Unlock with Touch ID or device password (main window or Quick Access).
-- Unlocking restores your previous sidebar folder, selected entry, and search. Decrypted contents are cleared on lock and loaded again when you open an entry.
-- **Lock Now** does not auto-prompt Touch ID until you press **Unlock** (or open Quick Access).
-
-## Quick Access
-
-Global hotkey (default **⌥⌘P**) opens a compact search window — useful for fast copy without the full UI.
-
-If NativePass is locked, Quick Access shows an unlock prompt first; after success you can search and copy as usual (the whole app unlocks).
-
-| Shortcut | Action |
-|----------|--------|
-| **esc** / **⌘W** / ✕ | Close without decrypting |
-| **↵** | Decrypt and copy password (then closes) |
-| **⌘O** | Open the entry in the main window |
-
-Configure under **Settings → General → Quick Access**.

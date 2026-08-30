@@ -10,12 +10,12 @@ Native macOS client for [pass](https://www.passwordstore.org/) — browse nested
 
 ## Features
 
-- Nested folders and search
+- Nested folders and [fuzzy path search](search.md)
 - Custom fields and password generator
 - TOTP verification codes (with `pass-otp`)
 - Git Pull / Push
-- App Lock with Touch ID
-- Quick Access popup (`⌥⌘P`)
+- [App Lock](app-lock.md) with Touch ID
+- [Quick Access](quick-access.md) popup (`⌥⌘P`)
 
 ## Quick start
 
@@ -38,5 +38,8 @@ Native macOS client for [pass](https://www.passwordstore.org/) — browse nested
 | [Requirements](requirements.md) | Homebrew packages |
 | [Setup](setup.md) | `pass init`, pinentry, Touch ID |
 | [Plugins](plugins.md) | `pass-otp` and more |
-| [Usage](usage.md) | Everyday workflow |
+| [Usage](usage.md) | Browse, create, edit, sync |
+| [Search](search.md) | Fuzzy path search |
+| [Quick Access](quick-access.md) | Global hotkey popup |
+| [App Lock](app-lock.md) | Idle lock and Touch ID |
 | [Troubleshooting](troubleshooting.md) | Diagnostics and common issues |

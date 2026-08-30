@@ -19,9 +19,11 @@ struct QuickAccessView: View {
     }
 
     private var filteredEntries: [String] {
-        let base = appState.entries.sorted()
-        guard !searchText.isEmpty else { return base }
-        return base.filter { $0.localizedCaseInsensitiveContains(searchText) }
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if query.isEmpty {
+            return appState.entries.sorted()
+        }
+        return EntrySearch.ranked(appState.entries, query: query)
     }
 
     var body: some View {
