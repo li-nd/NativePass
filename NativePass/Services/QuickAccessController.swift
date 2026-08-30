@@ -28,10 +28,6 @@ final class QuickAccessController: @unchecked Sendable {
 
     @MainActor
     func toggle() {
-        guard let appState else { return }
-        if appState.appLock.isBlocking {
-            return
-        }
         if isVisible {
             hide()
         } else {
@@ -42,7 +38,6 @@ final class QuickAccessController: @unchecked Sendable {
     @MainActor
     func show() {
         guard let appState else { return }
-        if appState.appLock.isBlocking { return }
 
         if panel == nil {
             panel = makePanel()
@@ -55,7 +50,9 @@ final class QuickAccessController: @unchecked Sendable {
         if let hostingView {
             panel.makeFirstResponder(hostingView)
         }
-        scheduleSearchFieldFocus(in: panel)
+        if !appState.appLock.isBlocking {
+            scheduleSearchFieldFocus(in: panel)
+        }
         installKeyMonitor()
     }
 

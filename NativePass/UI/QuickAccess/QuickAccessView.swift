@@ -10,7 +10,13 @@ struct QuickAccessView: View {
     @State private var isLoading = false
     @State private var decryptErrorSummary: String?
     @State private var closeAfterCopyTask: Task<Void, Never>?
+    @State private var isUnlocking = false
+    @State private var unlockError: String?
     @FocusState private var isSearchFocused: Bool
+
+    private var isLocked: Bool {
+        appState.appLock.isBlocking
+    }
 
     private var filteredEntries: [String] {
         let base = appState.entries.sorted()
@@ -19,6 +25,93 @@ struct QuickAccessView: View {
     }
 
     var body: some View {
+        Group {
+            if isLocked {
+                lockedContent
+            } else {
+                unlockedContent
+            }
+        }
+        .frame(width: 420, height: 420)
+        .background(.ultraThinMaterial)
+        .onDisappear { closeAfterCopyTask?.cancel() }
+        .onKeyPress(.escape) {
+            close()
+            return .handled
+        }
+        .onKeyPress(keys: [.init("w")], phases: .down) { press in
+            guard press.modifiers.contains(.command) else { return .ignored }
+            close()
+            return .handled
+        }
+        .task(id: isLocked) {
+            if isLocked {
+                await unlockFromQuickAccess(autoPrompt: true)
+            } else {
+                requestSearchFocus()
+            }
+        }
+    }
+
+    private var lockedContent: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Spacer()
+                Button {
+                    close()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 22, height: 22)
+                        .background(Circle().fill(.quaternary))
+                }
+                .buttonStyle(.plain)
+                .help("Close (Esc)")
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+
+            Spacer()
+
+            Image(systemName: "lock.fill")
+                .font(.system(size: 36))
+                .foregroundStyle(.secondary)
+
+            Text("NativePass is Locked")
+                .font(.headline)
+
+            Text("Unlock to search and copy passwords.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            if isUnlocking {
+                ProgressView("Waiting for authentication…")
+                    .controlSize(.small)
+            }
+
+            if let unlockError {
+                Text(unlockError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+
+            Button {
+                Task { await unlockFromQuickAccess(autoPrompt: false) }
+            } label: {
+                Label("Unlock", systemImage: "touchid")
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(isUnlocking)
+
+            Spacer()
+        }
+        .padding(.bottom, 20)
+        .padding(.horizontal, 20)
+    }
+
+    private var unlockedContent: some View {
         VStack(spacing: 0) {
             header
             Divider()
@@ -26,18 +119,9 @@ struct QuickAccessView: View {
             Divider()
             footer
         }
-        .frame(width: 420, height: 420)
-        .background(.ultraThinMaterial)
         .defaultFocus($isSearchFocused, true)
         .clipboardToast(message: appState.clipboard.lastCopyMessage) {
             appState.clipboard.dismissMessage()
-        }
-        .onAppear { requestSearchFocus() }
-        .task { requestSearchFocus() }
-        .onDisappear { closeAfterCopyTask?.cancel() }
-        .onKeyPress(.escape) {
-            close()
-            return .handled
         }
         .onKeyPress(.return) {
             if let selectedEntry {
@@ -45,17 +129,10 @@ struct QuickAccessView: View {
             }
             return .handled
         }
-        .onKeyPress(keys: [.init("o"), .init("w")], phases: .down) { press in
-            guard press.modifiers.contains(.command) else { return .ignored }
-            if press.key == .init("w") {
-                close()
-                return .handled
-            }
-            if selectedEntry != nil {
-                openInMainWindow()
-                return .handled
-            }
-            return .ignored
+        .onKeyPress(keys: [.init("o")], phases: .down) { press in
+            guard press.modifiers.contains(.command), selectedEntry != nil else { return .ignored }
+            openInMainWindow()
+            return .handled
         }
     }
 
@@ -183,7 +260,39 @@ struct QuickAccessView: View {
         onClose()
     }
 
+    private func unlockFromQuickAccess(autoPrompt: Bool) async {
+        guard appState.appLock.isBlocking, !isUnlocking else { return }
+
+        isUnlocking = true
+        unlockError = nil
+        defer { isUnlocking = false }
+
+        prepareWindowForAuthentication()
+        if autoPrompt {
+            try? await Task.sleep(for: .milliseconds(120))
+        }
+
+        let outcome = await appState.appLock.authenticateForManualUnlock()
+        switch outcome {
+        case .success:
+            unlockError = nil
+            requestSearchFocus()
+        case .cancelled:
+            break
+        case .failed:
+            unlockError = String(localized: "Authentication failed.")
+        }
+    }
+
+    private func prepareWindowForAuthentication() {
+        NSApp.activate(ignoringOtherApps: true)
+        if let window = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.canBecomeKey }) {
+            window.makeKeyAndOrderFront(nil)
+        }
+    }
+
     private func copyPassword(for entry: String) async {
+        guard !appState.appLock.isBlocking else { return }
         closeAfterCopyTask?.cancel()
         isLoading = true
         decryptErrorSummary = nil
@@ -208,6 +317,7 @@ struct QuickAccessView: View {
     }
 
     private func openInMainWindow() {
+        guard !appState.appLock.isBlocking else { return }
         guard let selectedEntry else { return }
         closeAfterCopyTask?.cancel()
         appState.requestSelectEntry(selectedEntry)

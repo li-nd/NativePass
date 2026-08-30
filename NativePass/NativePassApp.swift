@@ -106,7 +106,6 @@ struct NativePassApp: App {
                 appState.quickAccess.toggle()
             }
             .keyboardShortcut("p", modifiers: [.option, .command])
-            .disabled(appState.appLock.isBlocking)
 
             Button("Open NativePass") {
                 NSApp.activate(ignoringOtherApps: true)
