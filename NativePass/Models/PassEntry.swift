@@ -8,6 +8,8 @@ struct PassEntryField: Identifiable, Hashable, Sendable {
 
 struct PassEntry: Identifiable, Hashable, Sendable {
     let name: String
+    /// Exact decrypted file contents from `pass show` (preserves newlines / freeform text).
+    let rawContent: String
     let password: String
     let fields: [PassEntryField]
     let hasOTPMarker: Bool
@@ -42,6 +44,7 @@ enum PassEntryParser {
 
         return PassEntry(
             name: name,
+            rawContent: content,
             password: password,
             fields: fields,
             hasOTPMarker: otpauthLine != nil,

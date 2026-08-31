@@ -8,6 +8,7 @@ struct DetailGroupCard<Content: View>: View {
         VStack(spacing: 0) {
             content()
         }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .background {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(.quaternary.opacity(0.45))

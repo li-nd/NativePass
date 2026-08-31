@@ -7,6 +7,7 @@ Everyday workflow in the main window. Related topics: [Search](search.md), [Quic
 - Sidebar folders mirror your store paths (including nested folders).
 - Select an entry to decrypt and view details.
 - Click a password or field to copy. Clipboard auto-clear is configurable in Settings.
+- Use **Raw** / **Form** (top-right of the detail pane) to switch between structured fields and the decrypted file as plain text. The same control works while editing. **Edit** / **Cancel** / **Save** keep the current Raw or Form mode. **⌘C** still copies only the password (first line); **⌘⇧C** copies the entire raw entry.
 - Find entries with [Search](search.md) (fuzzy match on paths).
 
 ![Nested folders](screenshots/4-nested-folders.png)

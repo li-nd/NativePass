@@ -51,8 +51,12 @@ struct DetailToolbarActions: View {
 struct DetailPaneToolbarContent: ToolbarContent {
     @Bindable var controller: DetailPaneController
 
+    private var hasActions: Bool {
+        controller.isEditing || controller.showEditButton
+    }
+
     var body: some ToolbarContent {
-        if controller.isEditing || controller.showEditButton {
+        if hasActions {
             ToolbarItemGroup(placement: .primaryAction) {
                 DetailToolbarActions(controller: controller)
             }

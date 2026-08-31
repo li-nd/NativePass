@@ -67,6 +67,12 @@ struct NativePassApp: App {
                 }
                 .keyboardShortcut("c", modifiers: .command)
                 .disabled(isBlocking)
+
+                Button("Copy Raw Entry") {
+                    NotificationCenter.default.post(name: Notification.Name.nativePassCopyRawEntry, object: nil)
+                }
+                .keyboardShortcut("c", modifiers: [.command, .shift])
+                .disabled(isBlocking)
             }
 
             CommandMenu("Sync") {

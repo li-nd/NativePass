@@ -135,6 +135,10 @@ struct MainView: View {
             guard !appState.appLock.isBlocking else { return }
             copySelectedPassword()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .nativePassCopyRawEntry)) { _ in
+            guard !appState.appLock.isBlocking else { return }
+            copySelectedRawEntry()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .nativePassGitPull)) { _ in
             guard !appState.appLock.isBlocking else { return }
             Task {
@@ -190,6 +194,20 @@ struct MainView: View {
                     object: nil,
                     userInfo: ["scope": selectedEntry]
                 )
+            }
+        }
+    }
+
+    func copySelectedRawEntry() {
+        guard !appState.appLock.isBlocking else { return }
+        guard let selectedEntry = appState.selectedEntry else {
+            appState.clipboard.showMessage(String(localized: "Select an entry to copy."))
+            return
+        }
+        Task {
+            if let entry = try? await appState.loadEntry(selectedEntry) {
+                appState.metadataCache.update(from: entry)
+                appState.clipboard.copy(entry.rawContent)
             }
         }
     }
