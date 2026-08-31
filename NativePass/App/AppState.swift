@@ -13,6 +13,7 @@ final class AppState {
     let appLock: AppLockService
     let metadataCache = EntryMetadataCache()
     let quickAccess = QuickAccessController()
+    let shortcuts = ShortcutStore()
     let gitSync = GitSyncState()
 
     private(set) var otp: OTPService?
@@ -60,7 +61,7 @@ final class AppState {
 
         bootstrapStep = .checkingPlugins
         redetectEnvironmentIfNeeded()
-        quickAccess.configure(appState: self)
+        quickAccess.configure(appState: self, shortcutStore: shortcuts)
         registry.refreshFast(environment: environment)
         updateOTPService()
         updateGitService()

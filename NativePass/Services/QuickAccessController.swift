@@ -6,10 +6,12 @@ import SwiftUI
 final class QuickAccessController: @unchecked Sendable {
     @MainActor private var panel: NSPanel?
     @MainActor private weak var appState: AppState?
+    @MainActor private weak var shortcutStore: ShortcutStore?
     @MainActor private weak var hostingView: NSView?
     @MainActor private var keyMonitor: Any?
     @MainActor private var focusTask: Task<Void, Never>?
     @MainActor private var previousApplication: NSRunningApplication?
+    @MainActor private var shortcutObserver: NSObjectProtocol?
     private var hotKeyRef: EventHotKeyRef?
     private var eventHandler: EventHandlerRef?
 
@@ -22,9 +24,11 @@ final class QuickAccessController: @unchecked Sendable {
     var isVisible: Bool { panel?.isVisible == true }
 
     @MainActor
-    func configure(appState: AppState) {
+    func configure(appState: AppState, shortcutStore: ShortcutStore) {
         self.appState = appState
-        registerHotKey()
+        self.shortcutStore = shortcutStore
+        installShortcutObserver()
+        reregisterHotKey()
     }
 
     @MainActor
@@ -239,29 +243,61 @@ final class QuickAccessController: @unchecked Sendable {
     }
 
     @MainActor
-    private func registerHotKey() {
-        guard hotKeyRef == nil else { return }
-        var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        let callback: EventHandlerUPP = { _, _, userData -> OSStatus in
-            guard let userData else { return OSStatus(eventNotHandledErr) }
-            let controller = Unmanaged<QuickAccessController>.fromOpaque(userData).takeUnretainedValue()
-            Task { @MainActor in
-                controller.toggle()
-            }
-            return noErr
+    private func installShortcutObserver() {
+        if let shortcutObserver {
+            NotificationCenter.default.removeObserver(shortcutObserver)
         }
-        InstallEventHandler(
-            GetApplicationEventTarget(),
-            callback,
-            1,
-            &eventType,
-            Unmanaged.passUnretained(self).toOpaque(),
-            &eventHandler
-        )
+        shortcutObserver = NotificationCenter.default.addObserver(
+            forName: .nativePassQuickAccessShortcutDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.reregisterHotKey()
+            }
+        }
+    }
+
+    @MainActor
+    private func reregisterHotKey() {
+        if let hotKeyRef {
+            UnregisterEventHotKey(hotKeyRef)
+            self.hotKeyRef = nil
+        }
+        registerHotKey()
+    }
+
+    @MainActor
+    private func registerHotKey() {
+        let binding = shortcutStore?.quickAccess ?? .quickAccessDefault
+
+        if eventHandler == nil {
+            var eventType = EventTypeSpec(
+                eventClass: OSType(kEventClassKeyboard),
+                eventKind: UInt32(kEventHotKeyPressed)
+            )
+            let callback: EventHandlerUPP = { _, _, userData -> OSStatus in
+                guard let userData else { return OSStatus(eventNotHandledErr) }
+                let controller = Unmanaged<QuickAccessController>.fromOpaque(userData).takeUnretainedValue()
+                Task { @MainActor in
+                    controller.toggle()
+                }
+                return noErr
+            }
+            InstallEventHandler(
+                GetApplicationEventTarget(),
+                callback,
+                1,
+                &eventType,
+                Unmanaged.passUnretained(self).toOpaque(),
+                &eventHandler
+            )
+        }
+
         let hotKeyID = EventHotKeyID(signature: OSType(0x4E_50_41_53), id: 1)
         RegisterEventHotKey(
-            UInt32(kVK_ANSI_P),
-            UInt32(optionKey | cmdKey),
+            UInt32(binding.keyCode),
+            binding.carbonModifiers,
             hotKeyID,
             GetApplicationEventTarget(),
             0,

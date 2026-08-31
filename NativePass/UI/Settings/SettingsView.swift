@@ -23,7 +23,7 @@ struct SettingsView: View {
                 settingsContent
             }
         }
-        .frame(minWidth: 520, minHeight: 420)
+        .frame(minWidth: 640, minHeight: 360)
         .onAppear {
             syncLocalState()
             closeIfBlocked()
@@ -66,6 +66,9 @@ struct SettingsView: View {
             generalTab
                 .tabItem { Label("General", systemImage: "gearshape") }
 
+            quickAccessTab
+                .tabItem { Label("Quick Access", systemImage: "bolt.horizontal.circle") }
+
             securityTab
                 .tabItem { Label("Security", systemImage: "lock") }
 
@@ -79,6 +82,7 @@ struct SettingsView: View {
             }
             .tabItem { Label("Diagnostics", systemImage: "stethoscope") }
         }
+        .tabViewStyle(.tabBarOnly)
     }
 
     private var generalTab: some View {
@@ -129,11 +133,6 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Quick Access") {
-                Text("Global hotkey: ⌥⌘P")
-                    .foregroundStyle(.secondary)
-            }
-
             Section("Reveal") {
                 Stepper(
                     "Auto-hide revealed password after \(Int(revealHideDelay))s",
@@ -163,6 +162,23 @@ struct SettingsView: View {
                         }
                         .frame(maxHeight: 120)
                     }
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
+    }
+
+    private var quickAccessTab: some View {
+        @Bindable var shortcuts = appState.shortcuts
+
+        return Form {
+            Section("Hotkey") {
+                LabeledContent("Global hotkey") {
+                    ShortcutRecorderControl(
+                        binding: $shortcuts.quickAccess,
+                        onReset: { shortcuts.resetQuickAccess() }
+                    )
                 }
             }
         }

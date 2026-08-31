@@ -6,7 +6,7 @@ A floating popup for finding an entry and copying its password without opening t
 
 | How | Result |
 |-----|--------|
-| **⌥⌘P** (global hotkey) | Toggle: open if hidden, close if already open |
+| **Global hotkey** (default **⌥⌘P**) | Toggle: open if hidden, close if already open |
 | Menu bar extra → **Quick Access** | Same toggle |
 | **esc** / **⌘W** / ✕ | Close without copying |
 | Click another app | Panel hides (`hidesOnDeactivate`) |
@@ -14,7 +14,7 @@ A floating popup for finding an entry and copying its password without opening t
 
 The panel appears near the mouse pointer (clamped to the current screen). NativePass must be running (including from the menu bar); the hotkey does not launch a quit app.
 
-The hotkey is fixed at **⌥⌘P** today. **Settings → General → Quick Access** shows that shortcut (it is not customizable yet).
+Change the global hotkey in **Settings → Quick Access**. Click the shortcut button, press the new combination (at least one modifier), or **Reset** to restore ⌥⌘P. Esc cancels recording.
 
 ## Search and list
 

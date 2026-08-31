@@ -103,15 +103,18 @@ struct NativePassApp: App {
                 .environment(appState)
                 .environment(\.locale, preferredLocale)
         }
-        .defaultSize(width: 520, height: 420)
-        .windowResizability(.contentSize)
+        .defaultSize(width: 640, height: 420)
+        .windowResizability(.contentMinSize)
         .defaultLaunchBehavior(.suppressed)
 
         MenuBarExtra("NativePass", systemImage: "key") {
             Button("Quick Access") {
                 appState.quickAccess.toggle()
             }
-            .keyboardShortcut("p", modifiers: [.option, .command])
+            .keyboardShortcut(
+                appState.shortcuts.quickAccess.keyEquivalent,
+                modifiers: appState.shortcuts.quickAccess.swiftUIModifiers
+            )
 
             Button("Open NativePass") {
                 NSApp.activate(ignoringOtherApps: true)
