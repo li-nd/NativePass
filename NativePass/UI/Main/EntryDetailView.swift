@@ -76,7 +76,7 @@ struct EntryDetailView: View {
             await loadEntry()
         }
         .confirmationDialog(
-            "Delete \"\(entryName)\"?",
+            String(localized: "Delete \"\(entryName)\"?"),
             isPresented: $showDeleteConfirm,
             titleVisibility: .visible
         ) {

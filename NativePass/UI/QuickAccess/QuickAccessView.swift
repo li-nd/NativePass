@@ -214,7 +214,9 @@ struct QuickAccessView: View {
                 ContentUnavailableView {
                     Label("No Entries", systemImage: "key.slash")
                 } description: {
-                    Text(searchText.isEmpty ? "Your password store is empty." : "No matches for “\(searchText)”.")
+                    Text(searchText.isEmpty
+                         ? String(localized: "Your password store is empty.")
+                         : String(localized: "No matches for “\(searchText)”."))
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {

@@ -12,7 +12,7 @@ struct SettingsView: View {
     @State private var importHelp: String?
     @State private var lockTimeout: AppLockService.LockTimeout = .fifteen
     @State private var securityChangeError: String?
-    @State private var selectedLanguage: AppLanguage = .system
+    @State private var selectedLanguage: AppLanguage = AppLanguage.preference
     @State private var showLanguageRestartAlert = false
     @State private var autoTypeEnabled = AppPreferences.autoTypeEnabled
     @State private var quickAccessPrimaryAction = AppPreferences.quickAccessPrimaryAction
@@ -402,6 +402,7 @@ struct SettingsView: View {
     }
 
     private func applyLanguage(_ language: AppLanguage) {
+        guard language != AppLanguage.preference else { return }
         AppLanguage.select(language)
         selectedLanguage = AppLanguage.preference
         showLanguageRestartAlert = true

@@ -9,7 +9,7 @@ Under **Settings → Security**:
 | Setting | Behavior |
 |---------|----------|
 | **Require authentication** | Turns App Lock on or off. Enabling locks the UI immediately. Turning it off requires authentication. |
-| **Lock after…** | Idle timeout: **5**, **15** (default), or **30** minutes. Changing the timeout requires authentication. |
+| **Lock after…** | Idle timeout: **1**, **3**, **5**, **15** (default), or **30** minutes. Changing the timeout requires authentication. |
 
 Settings cannot be opened while the app is locked (the settings window is closed on lock).
 
