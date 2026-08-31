@@ -40,9 +40,12 @@ struct EntryListView: View {
     @Environment(AppState.self) private var appState
 
     private var filteredEntries: [String] {
-        let base = sortOrder.sorted(entries)
-        guard !searchText.isEmpty else { return base }
-        return base.filter { $0.localizedCaseInsensitiveContains(searchText) }
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        // When searching, `entries` is already fuzzy-ranked by MainView — keep that order.
+        if query.isEmpty {
+            return sortOrder.sorted(entries)
+        }
+        return entries
     }
 
     private var itemCountLabel: String {

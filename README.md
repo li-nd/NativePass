@@ -36,8 +36,15 @@
 | **Security** | GPG-backed store · App Lock (Touch ID) · clipboard auto-clear |
 | **OTP** | TOTP codes via [`pass-otp`](https://github.com/tadfisher/pass-otp) |
 | **Sync** | Git Pull / Push from the sidebar |
-| **Quick Access** | Global hotkey `⌥⌘P` for fast copy |
+| **Quick Access** | Global hotkey `⌥⌘P` — search, copy, or Auto-Type |
 
+### Quick Access
+
+<p align="center">
+  Spotlight-style popup from anywhere: fuzzy search your store, then copy or type the password without opening the main window.<br><br>
+  <img src="docs/screenshots/12-quickaccess.png" alt="Quick Access" width="420"><br><br>
+  Details: <a href="https://np.developer.pm/quick-access/"><strong>Quick Access</strong></a>.
+</p>
 ## Install
 
 ```bash
@@ -81,6 +88,9 @@ Full steps: **[Setup guide](https://np.developer.pm/setup/)**.
   <img src="docs/screenshots/4-nested-folders.png" alt="Nested folders" width="48%">
   &nbsp;
   <img src="docs/screenshots/8-settings-security.png" alt="Security settings" width="48%">
+</p>
+<p align="center">
+  <img src="docs/screenshots/11-settings-quickaccess.png" alt="Quick Access settings" width="56%">
 </p>
 
 ## Build

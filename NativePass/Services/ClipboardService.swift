@@ -5,7 +5,6 @@ import Foundation
 final class ClipboardService {
     private var clearTask: Task<Void, Never>?
     private var messageTask: Task<Void, Never>?
-    private var snapshotBeforeCopy: String?
     private var lastCopiedText: String?
     private(set) var lastCopyMessage: String?
 
@@ -16,7 +15,6 @@ final class ClipboardService {
     func copy(_ text: String, clearAfter: TimeInterval? = nil, showToast: Bool = true) {
         let timeout = clearAfter ?? clearTimeout
         let pasteboard = NSPasteboard.general
-        snapshotBeforeCopy = pasteboard.string(forType: .string)
         lastCopiedText = text
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
@@ -41,12 +39,7 @@ final class ClipboardService {
                 guard let self else { return }
                 let current = pasteboard.string(forType: .string)
                 if current == text {
-                    if let snapshot = self.snapshotBeforeCopy {
-                        pasteboard.clearContents()
-                        pasteboard.setString(snapshot, forType: .string)
-                    } else {
-                        pasteboard.clearContents()
-                    }
+                    pasteboard.clearContents()
                 }
                 if showToast {
                     self.lastCopyMessage = nil
@@ -85,15 +78,9 @@ final class ClipboardService {
 
         let pasteboard = NSPasteboard.general
         if pasteboard.string(forType: .string) == copied {
-            if let snapshot = snapshotBeforeCopy {
-                pasteboard.clearContents()
-                pasteboard.setString(snapshot, forType: .string)
-            } else {
-                pasteboard.clearContents()
-            }
+            pasteboard.clearContents()
         }
 
         lastCopiedText = nil
-        snapshotBeforeCopy = nil
     }
 }

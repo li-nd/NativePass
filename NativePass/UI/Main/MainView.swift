@@ -2,10 +2,6 @@ import SwiftUI
 
 struct MainView: View {
     @Environment(AppState.self) private var appState
-    @State private var selectedCategory: SidebarSelection = .all
-    @State private var selectedEntry: String?
-    @State private var searchText = ""
-    @State private var sortOrder: EntrySortOrder = .byName
     @State private var editorMode: EntryEditorMode?
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var detailPaneController = DetailPaneController()
@@ -13,25 +9,27 @@ struct MainView: View {
 
     private var categoryEntries: [String] {
         PassFolderNode.entries(
-            for: selectedCategory,
+            for: appState.selectedCategory,
             from: appState.entries,
             metadataCache: appState.metadataCache
         )
     }
 
     private var displayedEntries: [String] {
-        if searchText.isEmpty {
+        let query = appState.searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if query.isEmpty {
             return categoryEntries
         }
-        return appState.entries.filter { $0.localizedCaseInsensitiveContains(searchText) }
+        // Search ignores the sidebar category and ranks the whole store.
+        return EntrySearch.ranked(appState.entries, query: query)
     }
 
     private var suggestedPath: String? {
-        selectedCategory.folderPath
+        appState.selectedCategory.folderPath
     }
 
     private var listEmptyState: (title: String, description: String) {
-        switch selectedCategory {
+        switch appState.selectedCategory {
         case .verificationCodes:
             return (
                 String(localized: "No Verification Codes"),
@@ -51,27 +49,31 @@ struct MainView: View {
     }
 
     var body: some View {
+        @Bindable var appState = appState
+
         NavigationSplitView(columnVisibility: $columnVisibility) {
             SidebarView(
                 folders: PassFolderNode.buildFolderTree(from: appState.entries),
                 showVerificationCodes: appState.registry.hasOTP,
-                selectedCategory: $selectedCategory,
+                selectedCategory: $appState.selectedCategory,
                 columnVisibility: $columnVisibility
             )
             .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 280)
-            .onChange(of: selectedCategory) { _, _ in
-                selectedEntry = nil
+            .onChange(of: appState.selectedCategory) { _, _ in
+                // Preserve a pending jump (e.g. Quick Access → main window).
+                if appState.pendingSelectEntry != nil { return }
+                appState.selectedEntry = nil
                 detailPaneController.reset()
             }
         } content: {
             EntryListView(
                 entries: displayedEntries,
-                folderTitle: selectedCategory.listTitle,
+                folderTitle: appState.selectedCategory.listTitle,
                 emptyTitle: listEmptyState.title,
                 emptyDescription: listEmptyState.description,
-                selectedEntry: $selectedEntry,
-                searchText: $searchText,
-                sortOrder: $sortOrder,
+                selectedEntry: $appState.selectedEntry,
+                searchText: $appState.searchText,
+                sortOrder: $appState.entrySortOrder,
                 onNewEntry: {
                     guard !appState.appLock.isBlocking else { return }
                     editorMode = .create(suggestedPath: suggestedPath)
@@ -80,7 +82,7 @@ struct MainView: View {
             .navigationSplitViewColumnWidth(min: 220, ideal: 280, max: 360)
         } detail: {
             Group {
-                if let selectedEntry {
+                if let selectedEntry = appState.selectedEntry {
                     EntryDetailView(
                         entryName: selectedEntry,
                         detailController: detailPaneController
@@ -95,7 +97,7 @@ struct MainView: View {
                 }
             }
             .navigationTitle("")
-            .searchable(text: $searchText, prompt: "Search")
+            .searchable(text: $appState.searchText, prompt: "Search")
             .searchFocused($isSearchFocused)
             .toolbar {
                 DetailPaneToolbarContent(controller: detailPaneController)
@@ -104,19 +106,16 @@ struct MainView: View {
         .navigationSplitViewStyle(.balanced)
         .sheet(item: $editorMode) { mode in
             EntryEditorSheet(mode: mode) { savedName in
-                selectedEntry = savedName
+                appState.selectedEntry = savedName
             }
             .environment(appState)
         }
         .onChange(of: appState.entries) { _, entries in
-            if let selectedEntry, !entries.contains(selectedEntry) {
-                self.selectedEntry = nil
-                detailPaneController.reset()
-            }
+            pruneInvalidNavigation(using: entries)
         }
         .onChange(of: appState.pendingSelectEntry) { _, newValue in
             if let newValue {
-                selectedEntry = newValue
+                appState.selectedEntry = newValue
                 _ = appState.consumePendingSelectEntry()
             }
         }
@@ -135,6 +134,10 @@ struct MainView: View {
         .onReceive(NotificationCenter.default.publisher(for: .nativePassCopyPassword)) { _ in
             guard !appState.appLock.isBlocking else { return }
             copySelectedPassword()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .nativePassCopyRawEntry)) { _ in
+            guard !appState.appLock.isBlocking else { return }
+            copySelectedRawEntry()
         }
         .onReceive(NotificationCenter.default.publisher(for: .nativePassGitPull)) { _ in
             guard !appState.appLock.isBlocking else { return }
@@ -162,6 +165,9 @@ struct MainView: View {
                     .onTapGesture { appState.gitSync.clearMessage() }
             }
         }
+        .onAppear {
+            pruneInvalidNavigation(using: appState.entries)
+        }
     }
 
     func focusSearch() {
@@ -175,7 +181,7 @@ struct MainView: View {
 
     func copySelectedPassword() {
         guard !appState.appLock.isBlocking else { return }
-        guard let selectedEntry else {
+        guard let selectedEntry = appState.selectedEntry else {
             appState.clipboard.showMessage(String(localized: "Select an entry to copy its password."))
             return
         }
@@ -188,6 +194,38 @@ struct MainView: View {
                     object: nil,
                     userInfo: ["scope": selectedEntry]
                 )
+            }
+        }
+    }
+
+    func copySelectedRawEntry() {
+        guard !appState.appLock.isBlocking else { return }
+        guard let selectedEntry = appState.selectedEntry else {
+            appState.clipboard.showMessage(String(localized: "Select an entry to copy."))
+            return
+        }
+        Task {
+            if let entry = try? await appState.loadEntry(selectedEntry) {
+                appState.metadataCache.update(from: entry)
+                appState.clipboard.copy(entry.rawContent)
+            }
+        }
+    }
+
+    private func pruneInvalidNavigation(using entries: [String]) {
+        if let selectedEntry = appState.selectedEntry, !entries.contains(selectedEntry) {
+            appState.selectedEntry = nil
+            detailPaneController.reset()
+        }
+
+        if case .folder(let path) = appState.selectedCategory {
+            let folderStillExists = entries.contains { entry in
+                entry == path || entry.hasPrefix(path + "/")
+            }
+            if !folderStillExists {
+                appState.selectedCategory = .all
+                appState.selectedEntry = nil
+                detailPaneController.reset()
             }
         }
     }

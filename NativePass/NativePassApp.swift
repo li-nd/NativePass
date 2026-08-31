@@ -67,6 +67,12 @@ struct NativePassApp: App {
                 }
                 .keyboardShortcut("c", modifiers: .command)
                 .disabled(isBlocking)
+
+                Button("Copy Raw Entry") {
+                    NotificationCenter.default.post(name: Notification.Name.nativePassCopyRawEntry, object: nil)
+                }
+                .keyboardShortcut("c", modifiers: [.command, .shift])
+                .disabled(isBlocking)
             }
 
             CommandMenu("Sync") {
@@ -97,16 +103,18 @@ struct NativePassApp: App {
                 .environment(appState)
                 .environment(\.locale, preferredLocale)
         }
-        .defaultSize(width: 520, height: 420)
-        .windowResizability(.contentSize)
+        .defaultSize(width: 640, height: 420)
+        .windowResizability(.contentMinSize)
         .defaultLaunchBehavior(.suppressed)
 
         MenuBarExtra("NativePass", systemImage: "key") {
             Button("Quick Access") {
                 appState.quickAccess.toggle()
             }
-            .keyboardShortcut("p", modifiers: [.option, .command])
-            .disabled(appState.appLock.isBlocking)
+            .keyboardShortcut(
+                appState.shortcuts.quickAccess.keyEquivalent,
+                modifiers: appState.shortcuts.quickAccess.swiftUIModifiers
+            )
 
             Button("Open NativePass") {
                 NSApp.activate(ignoringOtherApps: true)

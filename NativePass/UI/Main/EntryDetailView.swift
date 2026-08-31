@@ -11,12 +11,26 @@ struct EntryDetailView: View {
     @State private var isLoading = false
     @State private var recoveryGuide: DecryptRecoveryGuide?
     @State private var isEditing = false
+    /// Shared Form/Raw mode for both viewing and editing.
+    @State private var showRaw = false
     @State private var draft: EntryEditDraft?
+    @State private var rawDraft = ""
     @State private var isSaving = false
     @State private var isGenerating = false
     @State private var isPasswordRevealed = false
     @State private var showDeleteConfirm = false
     @State private var actionError: String?
+
+    private var canSaveCurrentEdit: Bool {
+        if showRaw {
+            return !isSaving
+        }
+        return (draft?.isValid ?? false) && !isSaving
+    }
+
+    private var showsModeToggle: Bool {
+        entry != nil && recoveryGuide == nil && !isLoading
+    }
 
     var body: some View {
         Group {
@@ -28,6 +42,14 @@ struct EntryDetailView: View {
                 }
             } else if let entry {
                 entryContent(entry)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .overlay(alignment: .topTrailing) {
+                        if showsModeToggle {
+                            modeToggle
+                                .padding(.top, 8)
+                                .padding(.trailing, 20)
+                        }
+                    }
             } else {
                 PassEmptyState(
                     title: String(localized: "No Entry Selected"),
@@ -40,18 +62,21 @@ struct EntryDetailView: View {
         .toolbar(removing: .title)
         .onAppear { syncDetailChrome() }
         .onChange(of: isEditing) { _, _ in syncDetailChrome() }
+        .onChange(of: showRaw) { _, _ in syncDetailChrome() }
         .onChange(of: isLoading) { _, _ in syncDetailChrome() }
         .onChange(of: isSaving) { _, _ in syncDetailChrome() }
         .onChange(of: entry?.name) { _, _ in syncDetailChrome() }
         .onChange(of: recoveryGuide?.title) { _, _ in syncDetailChrome() }
         .onChange(of: draft?.isValid) { _, _ in syncDetailChrome() }
+        .onChange(of: rawDraft) { _, _ in syncDetailChrome() }
         .onDisappear { detailController.reset() }
         .task(id: entryName) {
             resetEditState()
+            showRaw = false
             await loadEntry()
         }
         .confirmationDialog(
-            "Delete \"\(entryName)\"?",
+            String(localized: "Delete \"\(entryName)\"?"),
             isPresented: $showDeleteConfirm,
             titleVisibility: .visible
         ) {
@@ -73,10 +98,10 @@ struct EntryDetailView: View {
     }
 
     private func syncDetailChrome() {
-        let canShowEdit = entry != nil && recoveryGuide == nil && !isLoading
-        detailController.showEditButton = canShowEdit && !isEditing
+        let canShowActions = entry != nil && recoveryGuide == nil && !isLoading
+        detailController.showEditButton = canShowActions && !isEditing
         detailController.isEditing = isEditing
-        detailController.canSave = (draft?.isValid ?? false) && !isSaving
+        detailController.canSave = canSaveCurrentEdit
         detailController.configureHandlers(
             onEdit: { beginEdit() },
             onCancel: { cancelEdit() },
@@ -84,20 +109,108 @@ struct EntryDetailView: View {
         )
     }
 
+    private var modeToggle: some View {
+        Button {
+            if showRaw {
+                switchToFormMode()
+            } else {
+                switchToRawMode()
+            }
+        } label: {
+            Text(showRaw ? "Form" : "Raw")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .help(showRaw ? "Show structured form" : "Show raw entry text")
+    }
+
     @ViewBuilder
     private func entryContent(_ entry: PassEntry) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                EntryHeroHeader(entryPath: isEditing ? (draft?.entryPath ?? entry.name) : entry.name)
+        let heroPath = isEditing ? (draft?.entryPath ?? entry.name) : entry.name
 
-                if isEditing, let draftBinding {
-                    editingContent(draftBinding)
-                } else {
-                    viewingContent(entry)
+        if isEditing && showRaw {
+            rawEditLayout(entry: entry, heroPath: heroPath)
+        } else if !isEditing && showRaw {
+            rawViewLayout(entry: entry, heroPath: heroPath)
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    EntryHeroHeader(entryPath: heroPath)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if isEditing, let draftBinding {
+                        editingContent(draftBinding)
+                    } else {
+                        viewingContent(entry)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 24)
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 24)
+        }
+    }
+
+    /// View mode: card height follows content; outer scroll if the page is taller than the pane.
+    @ViewBuilder
+    private func rawViewLayout(entry: PassEntry, heroPath: String) -> some View {
+        GeometryReader { geo in
+            let verticalChrome: CGFloat = 24
+            let estimatedHero: CGFloat = 100
+            let maxBody = max(geo.size.height - estimatedHero - verticalChrome, 120)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    EntryHeroHeader(entryPath: heroPath)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    EntryRawSection(
+                        entryName: entryName,
+                        rawContent: entry.rawContent,
+                        isEditing: false,
+                        maxBodyHeight: maxBody,
+                        editText: $rawDraft,
+                        onCopyAll: { copyRaw(entry.rawContent) }
+                    )
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 24)
+            }
+        }
+    }
+
+    /// Edit mode: editor fills remaining detail height.
+    @ViewBuilder
+    private func rawEditLayout(entry: PassEntry, heroPath: String) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            EntryHeroHeader(entryPath: heroPath)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            EntryRawSection(
+                entryName: entryName,
+                rawContent: entry.rawContent,
+                isEditing: true,
+                editText: $rawDraft,
+                onCopyAll: { copyRaw(entry.rawContent) }
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .layoutPriority(1)
+
+            rawDeleteCard
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(.horizontal, 20)
+        .padding(.bottom, 24)
+    }
+
+    private var rawDeleteCard: some View {
+        DetailGroupCard {
+            DetailGroupDestructiveRow(title: "Delete") {
+                showDeleteConfirm = true
+            }
         }
     }
 
@@ -185,9 +298,39 @@ struct EntryDetailView: View {
         )
     }
 
+    private func copyRaw(_ raw: String) {
+        appState.clipboard.copy(raw, showToast: false)
+        NotificationCenter.default.post(
+            name: .nativePassPasswordCopiedInline,
+            object: nil,
+            userInfo: ["scope": "\(entryName)-raw"]
+        )
+    }
+
+    private func switchToRawMode() {
+        if isEditing, let draft {
+            rawDraft = draft.toSerializedContent()
+        }
+        showRaw = true
+    }
+
+    private func switchToFormMode() {
+        if isEditing {
+            let path = draft?.entryPath ?? entry?.name ?? entryName
+            let pending = draft?.pendingOTPURI ?? ""
+            let parsed = PassEntryParser.parse(name: path, content: rawDraft)
+            var next = EntryEditDraft.from(parsed)
+            next.entryPath = path
+            next.pendingOTPURI = pending
+            draft = next
+        }
+        showRaw = false
+    }
+
     private func beginEdit() {
         guard let entry else { return }
         draft = EntryEditDraft.from(entry)
+        rawDraft = entry.rawContent
         isEditing = true
         isPasswordRevealed = false
     }
@@ -199,6 +342,7 @@ struct EntryDetailView: View {
     private func resetEditState() {
         isEditing = false
         draft = nil
+        rawDraft = ""
         isPasswordRevealed = false
         isGenerating = false
     }
@@ -247,6 +391,29 @@ struct EntryDetailView: View {
     }
 
     private func saveEdit() async {
+        if showRaw {
+            await saveRawEdit()
+        } else {
+            await saveFormEdit()
+        }
+    }
+
+    private func saveRawEdit() async {
+        isSaving = true
+        defer { isSaving = false }
+
+        do {
+            try await appState.saveEntry(entryName, content: rawDraft, force: true)
+            resetEditState()
+            showRaw = true
+            await appState.afterMutation(selectEntry: entryName)
+            await loadEntry()
+        } catch {
+            actionError = error.localizedDescription
+        }
+    }
+
+    private func saveFormEdit() async {
         guard let draft else { return }
         let newPath = draft.trimmedPath
         guard draft.isValid else { return }
@@ -268,6 +435,7 @@ struct EntryDetailView: View {
             }
 
             resetEditState()
+            showRaw = false
             await appState.afterMutation(selectEntry: newPath)
             if entryName == newPath {
                 await loadEntry()

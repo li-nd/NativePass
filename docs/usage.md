@@ -1,10 +1,16 @@
 # Usage
 
+Everyday workflow in the main window. Related topics: [Search](search.md), [Quick Access](quick-access.md), [App Lock](app-lock.md).
+
+For fast copy or Auto-Type without the main window, use **⌥⌘P** — see [Quick Access](quick-access.md).
+
 ## Browse and open entries
 
 - Sidebar folders mirror your store paths (including nested folders).
 - Select an entry to decrypt and view details.
 - Click a password or field to copy. Clipboard auto-clear is configurable in Settings.
+- Use **Raw** / **Form** (top-right of the detail pane) to switch between structured fields and the decrypted file as plain text. The same control works while editing. **Edit** / **Cancel** / **Save** keep the current Raw or Form mode. **⌘C** still copies only the password (first line); **⌘⇧C** copies the entire raw entry.
+- Find entries with [Search](search.md) (fuzzy match on paths).
 
 ![Nested folders](screenshots/4-nested-folders.png)
 
@@ -35,17 +41,3 @@ If the store is a Git repository:
 - **Settings → Sync** shows branch / ahead / behind.
 
 ![Git sync](screenshots/2-push.png)
-
-## Quick Access
-
-Global hotkey (default **⌥⌘P**) opens a compact search window — useful for fast copy without the full UI.
-
-Configure under **Settings → General → Quick Access**.
-
-## App Lock
-
-Enable under **Settings → Security**.
-
-- Locks the UI after idle timeout or when the app goes to background.
-- Unlock with Touch ID or device password.
-- Manual **Lock Now** (`⌃⌘L`) does not auto-prompt Touch ID until you press **Unlock**.

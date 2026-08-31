@@ -5,13 +5,20 @@ import Observation
 @Observable
 final class AppLockService {
     enum LockTimeout: Int, CaseIterable, Identifiable {
+        case one = 1
+        case three = 3
         case five = 5
         case fifteen = 15
         case thirty = 30
 
         var id: Int { rawValue }
 
-        var label: String { String(localized: "\(rawValue) minutes") }
+        var label: String {
+            if rawValue == 1 {
+                return String(localized: "1 minute")
+            }
+            return String(localized: "\(rawValue) minutes")
+        }
     }
 
     enum AuthenticationOutcome: Sendable {
@@ -69,12 +76,6 @@ final class AppLockService {
     func lockManually() {
         guard isEnabled else { return }
         setLocked(true, allowsAutoUnlock: false)
-    }
-
-    /// App moved to background — auto-unlock when user returns.
-    func lockFromBackground() {
-        guard isEnabled else { return }
-        setLocked(true, allowsAutoUnlock: true)
     }
 
     func enableLock() {

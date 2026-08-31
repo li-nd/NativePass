@@ -35,7 +35,11 @@ nav:
   - Requirements: requirements.md
   - Setup: setup.md
   - Plugins: plugins.md
-  - Usage: usage.md
+  - Usage:
+      - Overview: usage.md
+      - Search: search.md
+      - Quick Access: quick-access.md
+      - App Lock: app-lock.md
   - Troubleshooting: troubleshooting.md
 
 markdown_extensions:
