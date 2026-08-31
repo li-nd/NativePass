@@ -3,7 +3,7 @@ import SwiftUI
 
 struct QuickAccessView: View {
     @Environment(AppState.self) private var appState
-    let onClose: () -> Void
+    let onClose: (_ restorePreviousApplication: Bool) -> Void
 
     @State private var searchText = ""
     @State private var selectedEntry: String?
@@ -256,10 +256,10 @@ struct QuickAccessView: View {
         }
     }
 
-    private func close() {
+    private func close(restorePreviousApplication: Bool = true) {
         closeAfterCopyTask?.cancel()
         appState.clipboard.dismissMessage()
-        onClose()
+        onClose(restorePreviousApplication)
     }
 
     private func unlockFromQuickAccess(autoPrompt: Bool) async {
@@ -327,7 +327,7 @@ struct QuickAccessView: View {
         if let window = NSApp.windows.first(where: { $0.canBecomeMain }) {
             window.makeKeyAndOrderFront(nil)
         }
-        close()
+        close(restorePreviousApplication: false)
     }
 }
 

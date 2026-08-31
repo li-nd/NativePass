@@ -9,6 +9,7 @@ final class QuickAccessController: @unchecked Sendable {
     @MainActor private weak var hostingView: NSView?
     @MainActor private var keyMonitor: Any?
     @MainActor private var focusTask: Task<Void, Never>?
+    @MainActor private var previousApplication: NSRunningApplication?
     private var hotKeyRef: EventHotKeyRef?
     private var eventHandler: EventHandlerRef?
 
@@ -36,8 +37,23 @@ final class QuickAccessController: @unchecked Sendable {
     }
 
     @MainActor
+    func hide(restorePreviousApplication: Bool = true) {
+        focusTask?.cancel()
+        focusTask = nil
+        removeKeyMonitor()
+        panel?.orderOut(nil)
+        if restorePreviousApplication {
+            restorePreviousApplicationIfNeeded()
+        } else {
+            previousApplication = nil
+        }
+    }
+
+    @MainActor
     func show() {
         guard let appState else { return }
+
+        capturePreviousApplication()
 
         if panel == nil {
             panel = makePanel()
@@ -47,9 +63,6 @@ final class QuickAccessController: @unchecked Sendable {
         positionPanel(panel)
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
-        if let hostingView {
-            panel.makeFirstResponder(hostingView)
-        }
         if !appState.appLock.isBlocking {
             scheduleSearchFieldFocus(in: panel)
         }
@@ -57,11 +70,20 @@ final class QuickAccessController: @unchecked Sendable {
     }
 
     @MainActor
-    func hide() {
-        focusTask?.cancel()
-        focusTask = nil
-        removeKeyMonitor()
-        panel?.orderOut(nil)
+    private func capturePreviousApplication() {
+        previousApplication = NSWorkspace.shared.frontmostApplication
+    }
+
+    @MainActor
+    private func restorePreviousApplicationIfNeeded() {
+        guard let previousApplication else { return }
+        defer { self.previousApplication = nil }
+
+        guard !previousApplication.isTerminated else { return }
+        if previousApplication.bundleIdentifier == Bundle.main.bundleIdentifier {
+            return
+        }
+        previousApplication.activate(options: [])
     }
 
     @MainActor
@@ -90,13 +112,11 @@ final class QuickAccessController: @unchecked Sendable {
         let card = Self.cardSize
         let rootSize = Self.windowSize
 
-        // Root: clear, does not clip — leaves room for the shadow.
         let root = NSView(frame: NSRect(origin: .zero, size: rootSize))
         root.wantsLayer = true
         root.layer?.backgroundColor = NSColor.clear.cgColor
         root.layer?.masksToBounds = false
 
-        // Outer: draws the rounded shadow (masksToBounds = false).
         let outer = NSView(frame: NSRect(x: margin, y: margin, width: card.width, height: card.height))
         outer.wantsLayer = true
         outer.layer?.masksToBounds = false
@@ -112,9 +132,8 @@ final class QuickAccessController: @unchecked Sendable {
             transform: nil
         )
 
-        // Inner: clipped rounded content.
-        let hosting = NSHostingView(rootView: QuickAccessView(onClose: { [weak self] in
-            Task { @MainActor in self?.hide() }
+        let hosting = NSHostingView(rootView: QuickAccessView(onClose: { [weak self] restorePreviousApplication in
+            Task { @MainActor in self?.hide(restorePreviousApplication: restorePreviousApplication) }
         }).environment(appState))
         hosting.frame = outer.bounds
         hosting.autoresizingMask = [.width, .height]
@@ -130,7 +149,6 @@ final class QuickAccessController: @unchecked Sendable {
         hostingView = hosting
     }
 
-    /// FocusState alone is unreliable in an NSPanel hosting view; drive AppKit first responder.
     @MainActor
     private func scheduleSearchFieldFocus(in panel: NSPanel) {
         focusTask?.cancel()
@@ -151,9 +169,6 @@ final class QuickAccessController: @unchecked Sendable {
     @discardableResult
     private func focusSearchField(in panel: NSPanel) -> Bool {
         guard let field = Self.findEditableTextField(in: panel.contentView) else {
-            if let hostingView {
-                return panel.makeFirstResponder(hostingView)
-            }
             return false
         }
         panel.initialFirstResponder = field
@@ -165,7 +180,6 @@ final class QuickAccessController: @unchecked Sendable {
         if let textField = root as? NSTextField, textField.isEditable {
             return textField
         }
-        // SwiftUI may wrap the field; prefer the field editor's target when present.
         for subview in root.subviews {
             if let found = findEditableTextField(in: subview) {
                 return found
@@ -192,10 +206,7 @@ final class QuickAccessController: @unchecked Sendable {
         removeKeyMonitor()
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self else { return event }
-            precondition(Thread.isMainThread)
-            return MainActor.assumeIsolated {
-                self.handleKeyEvent(event)
-            }
+            return self.handleKeyEvent(event)
         }
     }
 
