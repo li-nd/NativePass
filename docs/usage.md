@@ -2,6 +2,8 @@
 
 Everyday workflow in the main window. Related topics: [Search](search.md), [Quick Access](quick-access.md), [App Lock](app-lock.md).
 
+For fast copy or Auto-Type without the main window, use **⌥⌘P** — see [Quick Access](quick-access.md).
+
 ## Browse and open entries
 
 - Sidebar folders mirror your store paths (including nested folders).

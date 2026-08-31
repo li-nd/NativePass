@@ -25584,6 +25584,252 @@
           }
         }
       }
+    },
+    "esc · ↑↓ · ⇥ · ↵ copy · ⌘O": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ copy · ⌘O"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ копировать · ⌘O"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ kopieren · ⌘O"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ copier · ⌘O"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ copiar · ⌘O"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ コピー · ⌘O"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ 拷贝 · ⌘O"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ copiar · ⌘O"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ copia · ⌘O"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ 복사 · ⌘O"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ kopiëren · ⌘O"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ kopiuj · ⌘O"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ копіювати · ⌘O"
+          }
+        }
+      }
+    },
+    "esc · ↑↓ · ⇥ · ↵ copy · ⌘↵ type · ⌘O": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ copy · ⌘↵ type · ⌘O"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ копировать · ⌘↵ ввести · ⌘O"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ kopieren · ⌘↵ tippen · ⌘O"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ copier · ⌘↵ saisir · ⌘O"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ copiar · ⌘↵ escribir · ⌘O"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ コピー · ⌘↵ 入力 · ⌘O"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ 拷贝 · ⌘↵ 键入 · ⌘O"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ copiar · ⌘↵ digitar · ⌘O"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ copia · ⌘↵ digita · ⌘O"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ 복사 · ⌘↵ 입력 · ⌘O"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ kopiëren · ⌘↵ typen · ⌘O"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ kopiuj · ⌘↵ wpisz · ⌘O"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ копіювати · ⌘↵ ввести · ⌘O"
+          }
+        }
+      }
+    },
+    "esc · ↑↓ · ⇥ · ↵ type · ⌘↵ copy · ⌘O": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ type · ⌘↵ copy · ⌘O"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ ввести · ⌘↵ копировать · ⌘O"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ tippen · ⌘↵ kopieren · ⌘O"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ saisir · ⌘↵ copier · ⌘O"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ escribir · ⌘↵ copiar · ⌘O"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ 入力 · ⌘↵ コピー · ⌘O"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ 键入 · ⌘↵ 拷贝 · ⌘O"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ digitar · ⌘↵ copiar · ⌘O"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ digita · ⌘↵ copia · ⌘O"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ 입력 · ⌘↵ 복사 · ⌘O"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ typen · ⌘↵ kopiëren · ⌘O"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ wpisz · ⌘↵ kopiuj · ⌘O"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "esc · ↑↓ · ⇥ · ↵ ввести · ⌘↵ копіювати · ⌘O"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

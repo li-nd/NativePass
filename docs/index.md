@@ -15,7 +15,11 @@ Native macOS client for [pass](https://www.passwordstore.org/) — browse nested
 - TOTP verification codes (with `pass-otp`)
 - Git Pull / Push
 - [App Lock](app-lock.md) with Touch ID
-- [Quick Access](quick-access.md) popup (`⌥⌘P`)
+- [Quick Access](quick-access.md) popup (`⌥⌘P`) — search, copy, or Auto-Type
+
+<p align="center">
+  <img src="screenshots/12-quickaccess.png" alt="Quick Access" width="420">
+</p>
 
 ## Quick start
 
@@ -40,6 +44,6 @@ Native macOS client for [pass](https://www.passwordstore.org/) — browse nested
 | [Plugins](plugins.md) | `pass-otp` and more |
 | [Usage](usage.md) | Browse, create, edit, sync |
 | [Search](search.md) | Fuzzy path search |
-| [Quick Access](quick-access.md) | Global hotkey popup |
+| [Quick Access](quick-access.md) | Global hotkey, copy, Auto-Type |
 | [App Lock](app-lock.md) | Idle lock and Touch ID |
 | [Troubleshooting](troubleshooting.md) | Diagnostics and common issues |

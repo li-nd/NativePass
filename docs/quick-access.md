@@ -2,6 +2,10 @@
 
 A floating popup for finding an entry and copying (or typing) its password without opening the full NativePass window.
 
+<p align="center">
+  <img src="screenshots/12-quickaccess.png" alt="Quick Access" width="420">
+</p>
+
 ## Open and close
 
 | How | Result |
@@ -14,16 +18,30 @@ A floating popup for finding an entry and copying (or typing) its password witho
 
 The panel appears near the mouse pointer (clamped to the current screen). NativePass must be running (including from the menu bar); the hotkey does not launch a quit app.
 
-Change the global hotkey in **Settings → Quick Access**. Click the shortcut button, press the new combination (at least one modifier), or **Reset** to restore ⌥⌘P. Esc cancels recording.
+## Settings
+
+Configure the hotkey and Auto-Type in **Settings → Quick Access**:
+
+<p align="center">
+  <img src="screenshots/11-settings-quickaccess.png" alt="Quick Access settings" width="560">
+</p>
+
+- **Global hotkey** — click the shortcut button, press a new combination (at least one modifier), or **Reset** to restore ⌥⌘P. Esc cancels recording.
+- **Enable Auto-Type** — allow typing the password into the previously focused app
+- **Return key action** — Copy Password or Type Password (↵ vs ⌘↵ swap when both are available)
+- **Delay before typing** — pause after closing the popup so the target app can take focus (default 200 ms)
+- **Accessibility** — status, **System Settings**, and **Refresh**; macOS must allow NativePass under **Privacy & Security → Accessibility**
 
 ## Search and list
 
 - Uses the same [fuzzy path search](search.md) as the main window (whole store, paths only).
 - Empty query lists all entries (alphabetically by path).
 - The list shows up to **50** matches; narrow the query if you need something further down.
-- Arrow keys / click change the selection. The first result is selected automatically as you type.
+- **↑ / ↓** change the selected row while the search field stays focused (including key-repeat while held). **⇥** moves focus to the list; **⇧⇥** (or **⇥** from the list) returns focus to search. The first result is selected automatically as you type.
 - Rows show the entry name, optional username (only if that entry was decrypted earlier in this session), and icons for URL / OTP when metadata is known.
 - Each row has a copy button; when Auto-Type is enabled, a keyboard button types the password into the previously focused app. **↵** runs the configured primary action.
+
+Footer hints summarize the shortcuts for the current Auto-Type / Return-key setup (for example `esc · ↑↓ · ⇥ · ↵ copy · ⌘↵ type · ⌘O`).
 
 Search text in Quick Access is local to the popup — it does not sync with the main window search field.
 
@@ -40,13 +58,6 @@ Only the password is copied this way — not username, URL, or OTP. Use **Open i
 ## Auto-Type
 
 Optional alternative to the clipboard: NativePass restores the previously focused app and synthesizes keystrokes for the password.
-
-Configure in **Settings → Quick Access**:
-
-- **Enable Auto-Type**
-- **Return key action** — Copy Password or Type Password (↵ vs ⌘↵ swap when both are available)
-- **Delay before typing** — pause after closing the popup so the target app can take focus (default 200 ms)
-- **Accessibility** — macOS must allow NativePass under **Privacy & Security → Accessibility**
 
 Flow when typing:
 

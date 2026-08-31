@@ -5,6 +5,11 @@ struct QuickAccessView: View {
     @Environment(AppState.self) private var appState
     let onClose: (_ restorePreviousApplication: Bool) -> Void
 
+    fileprivate enum FocusTarget: Hashable {
+        case search
+        case list
+    }
+
     @State private var searchText = ""
     @State private var selectedEntry: String?
     @State private var isLoading = false
@@ -12,7 +17,7 @@ struct QuickAccessView: View {
     @State private var closeAfterActionTask: Task<Void, Never>?
     @State private var isUnlocking = false
     @State private var unlockError: String?
-    @FocusState private var isSearchFocused: Bool
+    @FocusState private var focusTarget: FocusTarget?
 
     private var isLocked: Bool {
         appState.appLock.isBlocking
@@ -34,16 +39,20 @@ struct QuickAccessView: View {
         return EntrySearch.ranked(appState.entries, query: query)
     }
 
+    private var visibleEntries: [String] {
+        Array(filteredEntries.prefix(50))
+    }
+
     private var footerHint: String {
         if autoTypeEnabled {
             switch primaryAction {
             case .copy:
-                return String(localized: "esc close · ↵ copy · ⌘↵ type · ⌘O open")
+                return String(localized: "esc · ↑↓ · ⇥ · ↵ copy · ⌘↵ type · ⌘O")
             case .autoType:
-                return String(localized: "esc close · ↵ type · ⌘↵ copy · ⌘O open")
+                return String(localized: "esc · ↑↓ · ⇥ · ↵ type · ⌘↵ copy · ⌘O")
             }
         }
-        return String(localized: "esc close · ↵ copy · ⌘O open")
+        return String(localized: "esc · ↑↓ · ⇥ · ↵ copy · ⌘O")
     }
 
     var body: some View {
@@ -141,9 +150,24 @@ struct QuickAccessView: View {
             Divider()
             footer
         }
-        .defaultFocus($isSearchFocused, true)
+        .defaultFocus($focusTarget, .search)
         .clipboardToast(message: appState.clipboard.lastCopyMessage) {
             appState.clipboard.dismissMessage()
+        }
+        .background {
+            QuickAccessKeyboardMonitor(
+                focusTarget: focusTarget,
+                onMoveSelection: { moveSelection(delta: $0) },
+                onFocusList: {
+                    ensureSelectionExists()
+                    guard !visibleEntries.isEmpty else { return false }
+                    focusTarget = .list
+                    return true
+                },
+                onFocusSearch: {
+                    focusTarget = .search
+                }
+            )
         }
         .onKeyPress(keys: [.return], phases: .down) { press in
             guard let selectedEntry else { return .handled }
@@ -170,8 +194,7 @@ struct QuickAccessView: View {
             TextField("Search entries…", text: $searchText)
                 .textFieldStyle(.plain)
                 .font(.title3)
-                .focused($isSearchFocused)
-                .focusable(true)
+                .focused($focusTarget, equals: .search)
 
             if isLoading {
                 ProgressView()
@@ -181,7 +204,7 @@ struct QuickAccessView: View {
             if !searchText.isEmpty {
                 Button {
                     searchText = ""
-                    isSearchFocused = true
+                    focusTarget = .search
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .symbolRenderingMode(.hierarchical)
@@ -210,7 +233,7 @@ struct QuickAccessView: View {
 
     private var resultsList: some View {
         Group {
-            if filteredEntries.isEmpty {
+            if visibleEntries.isEmpty {
                 ContentUnavailableView {
                     Label("No Entries", systemImage: "key.slash")
                 } description: {
@@ -220,33 +243,41 @@ struct QuickAccessView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                List(filteredEntries.prefix(50), id: \.self, selection: $selectedEntry) { entry in
-                    QuickAccessRow(
-                        entry: entry,
-                        username: appState.metadataCache.metadata(for: entry)?.username,
-                        hasURL: appState.metadataCache.metadata(for: entry)?.url != nil,
-                        hasOTP: appState.metadataCache.metadata(for: entry)?.hasOTP == true,
-                        showAutoType: autoTypeEnabled,
-                        onCopy: { Task { await copyPassword(for: entry) } },
-                        onAutoType: { Task { await autoTypePassword(for: entry) } }
-                    )
-                    .tag(entry)
-                    .listRowInsets(EdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10))
+                ScrollViewReader { proxy in
+                    List(visibleEntries, id: \.self, selection: $selectedEntry) { entry in
+                        QuickAccessRow(
+                            entry: entry,
+                            username: appState.metadataCache.metadata(for: entry)?.username,
+                            hasURL: appState.metadataCache.metadata(for: entry)?.url != nil,
+                            hasOTP: appState.metadataCache.metadata(for: entry)?.hasOTP == true,
+                            showAutoType: autoTypeEnabled,
+                            onCopy: { Task { await copyPassword(for: entry) } },
+                            onAutoType: { Task { await autoTypePassword(for: entry) } }
+                        )
+                        .tag(entry)
+                        .id(entry)
+                        .listRowInsets(EdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10))
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .focused($focusTarget, equals: .list)
+                    .focusable(true)
+                    .onChange(of: selectedEntry) { _, newValue in
+                        decryptErrorSummary = nil
+                        guard let newValue else { return }
+                        withAnimation(.easeInOut(duration: 0.12)) {
+                            proxy.scrollTo(newValue, anchor: .center)
+                        }
+                    }
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
             }
         }
         .frame(maxHeight: .infinity)
-        .onChange(of: selectedEntry) { _, _ in
-            decryptErrorSummary = nil
-        }
         .onChange(of: searchText) { _, _ in
-            if let selectedEntry, !filteredEntries.contains(selectedEntry) {
-                self.selectedEntry = filteredEntries.first
-            } else if selectedEntry == nil {
-                selectedEntry = filteredEntries.first
-            }
+            syncSelectionToVisibleEntries()
+        }
+        .onAppear {
+            syncSelectionToVisibleEntries()
         }
     }
 
@@ -276,10 +307,35 @@ struct QuickAccessView: View {
     }
 
     private func requestSearchFocus() {
-        isSearchFocused = true
+        focusTarget = .search
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(50))
-            isSearchFocused = true
+            focusTarget = .search
+        }
+    }
+
+    private func ensureSelectionExists() {
+        if selectedEntry == nil || !(visibleEntries.contains(selectedEntry ?? "")) {
+            selectedEntry = visibleEntries.first
+        }
+    }
+
+    private func syncSelectionToVisibleEntries() {
+        if let selectedEntry, visibleEntries.contains(selectedEntry) {
+            return
+        }
+        selectedEntry = visibleEntries.first
+    }
+
+    private func moveSelection(delta: Int) {
+        let entries = visibleEntries
+        guard !entries.isEmpty else { return }
+
+        if let selectedEntry, let index = entries.firstIndex(of: selectedEntry) {
+            let next = min(max(index + delta, 0), entries.count - 1)
+            self.selectedEntry = entries[next]
+        } else {
+            selectedEntry = delta >= 0 ? entries.first : entries.last
         }
     }
 
@@ -432,6 +488,147 @@ struct QuickAccessView: View {
             window.makeKeyAndOrderFront(nil)
         }
         close(restorePreviousApplication: false)
+    }
+}
+
+/// Local key monitor: system key-repeat for ↑/↓ in search, and Tab focus transfer
+/// (AppKit TextField swallows Tab before SwiftUI `onKeyPress`).
+private struct QuickAccessKeyboardMonitor: NSViewRepresentable {
+    var focusTarget: QuickAccessView.FocusTarget?
+    var onMoveSelection: (Int) -> Void
+    /// Returns `false` if list focus was refused (e.g. empty results).
+    var onFocusList: () -> Bool
+    var onFocusSearch: () -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        context.coordinator.hostView = view
+        context.coordinator.onMoveSelection = onMoveSelection
+        context.coordinator.onFocusList = onFocusList
+        context.coordinator.onFocusSearch = onFocusSearch
+        context.coordinator.focusTarget = focusTarget
+        context.coordinator.installMonitor()
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.hostView = nsView
+        context.coordinator.onMoveSelection = onMoveSelection
+        context.coordinator.onFocusList = onFocusList
+        context.coordinator.onFocusSearch = onFocusSearch
+        context.coordinator.focusTarget = focusTarget
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    final class Coordinator {
+        weak var hostView: NSView?
+        var focusTarget: QuickAccessView.FocusTarget?
+        var onMoveSelection: ((Int) -> Void)?
+        var onFocusList: (() -> Bool)?
+        var onFocusSearch: (() -> Void)?
+        private var monitor: Any?
+
+        func installMonitor() {
+            guard monitor == nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                self?.handle(event) ?? event
+            }
+        }
+
+        private func handle(_ event: NSEvent) -> NSEvent? {
+            guard let hostView, hostView.window != nil else { return event }
+            if let eventWindow = event.window, eventWindow !== hostView.window {
+                return event
+            }
+
+            let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
+
+            // Tab / Shift+Tab — transfer focus between search and list
+            if event.keyCode == 48 {
+                let nonShift = modifiers.subtracting(.shift)
+                guard nonShift.isEmpty else { return event }
+
+                if modifiers.contains(.shift) || focusTarget == .list {
+                    onFocusSearch?()
+                    DispatchQueue.main.async { [weak self] in
+                        self?.makeSearchFirstResponder()
+                    }
+                } else {
+                    guard onFocusList?() == true else { return nil }
+                    DispatchQueue.main.async { [weak self] in
+                        self?.makeListFirstResponder()
+                    }
+                }
+                return nil
+            }
+
+            // ↑ / ↓ while search is focused (including key-repeat)
+            guard focusTarget == .search else { return event }
+            guard modifiers.isEmpty else { return event }
+
+            let delta: Int
+            switch event.keyCode {
+            case 125: delta = 1
+            case 126: delta = -1
+            default: return event
+            }
+            onMoveSelection?(delta)
+            return nil
+        }
+
+        private func makeSearchFirstResponder() {
+            guard let window = hostView?.window,
+                  let field = Self.findEditableTextField(in: window.contentView) else { return }
+            window.makeFirstResponder(field)
+        }
+
+        private func makeListFirstResponder() {
+            guard let window = hostView?.window else { return }
+            if let table = Self.findTableView(in: window.contentView) {
+                window.makeFirstResponder(table)
+                return
+            }
+            // Fall back: resign text field so List can take SwiftUI focus.
+            if let field = Self.findEditableTextField(in: window.contentView) {
+                field.resignFirstResponder()
+            }
+            window.makeFirstResponder(nil)
+        }
+
+        private static func findEditableTextField(in root: NSView?) -> NSTextField? {
+            guard let root else { return nil }
+            if let textField = root as? NSTextField, textField.isEditable {
+                return textField
+            }
+            for subview in root.subviews {
+                if let found = findEditableTextField(in: subview) {
+                    return found
+                }
+            }
+            return nil
+        }
+
+        private static func findTableView(in root: NSView?) -> NSTableView? {
+            guard let root else { return nil }
+            if let table = root as? NSTableView {
+                return table
+            }
+            for subview in root.subviews {
+                if let found = findTableView(in: subview) {
+                    return found
+                }
+            }
+            return nil
+        }
+
+        deinit {
+            if let monitor {
+                NSEvent.removeMonitor(monitor)
+            }
+        }
     }
 }
 
