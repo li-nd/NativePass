@@ -9,7 +9,7 @@ struct QuickAccessView: View {
     @State private var selectedEntry: String?
     @State private var isLoading = false
     @State private var decryptErrorSummary: String?
-    @State private var closeAfterCopyTask: Task<Void, Never>?
+    @State private var closeAfterActionTask: Task<Void, Never>?
     @State private var isUnlocking = false
     @State private var unlockError: String?
     @FocusState private var isSearchFocused: Bool
@@ -18,12 +18,32 @@ struct QuickAccessView: View {
         appState.appLock.isBlocking
     }
 
+    private var autoTypeEnabled: Bool {
+        AppPreferences.autoTypeEnabled
+    }
+
+    private var primaryAction: QuickAccessPrimaryAction {
+        AppPreferences.effectiveQuickAccessPrimaryAction
+    }
+
     private var filteredEntries: [String] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         if query.isEmpty {
             return appState.entries.sorted()
         }
         return EntrySearch.ranked(appState.entries, query: query)
+    }
+
+    private var footerHint: String {
+        if autoTypeEnabled {
+            switch primaryAction {
+            case .copy:
+                return String(localized: "esc close · ↵ copy · ⌘↵ type · ⌘O open")
+            case .autoType:
+                return String(localized: "esc close · ↵ type · ⌘↵ copy · ⌘O open")
+            }
+        }
+        return String(localized: "esc close · ↵ copy · ⌘O open")
     }
 
     var body: some View {
@@ -36,7 +56,7 @@ struct QuickAccessView: View {
         }
         .frame(width: 420, height: 420)
         .background(.ultraThinMaterial)
-        .onDisappear { closeAfterCopyTask?.cancel() }
+        .onDisappear { closeAfterActionTask?.cancel() }
         .onKeyPress(.escape) {
             close()
             return .handled
@@ -125,9 +145,12 @@ struct QuickAccessView: View {
         .clipboardToast(message: appState.clipboard.lastCopyMessage) {
             appState.clipboard.dismissMessage()
         }
-        .onKeyPress(.return) {
-            if let selectedEntry {
-                Task { await copyPassword(for: selectedEntry) }
+        .onKeyPress(keys: [.return], phases: .down) { press in
+            guard let selectedEntry else { return .handled }
+            if press.modifiers.contains(.command), autoTypeEnabled {
+                Task { await performSecondaryAction(for: selectedEntry) }
+            } else {
+                Task { await performPrimaryAction(for: selectedEntry) }
             }
             return .handled
         }
@@ -201,7 +224,9 @@ struct QuickAccessView: View {
                         username: appState.metadataCache.metadata(for: entry)?.username,
                         hasURL: appState.metadataCache.metadata(for: entry)?.url != nil,
                         hasOTP: appState.metadataCache.metadata(for: entry)?.hasOTP == true,
-                        onCopy: { Task { await copyPassword(for: entry) } }
+                        showAutoType: autoTypeEnabled,
+                        onCopy: { Task { await copyPassword(for: entry) } },
+                        onAutoType: { Task { await autoTypePassword(for: entry) } }
                     )
                     .tag(entry)
                     .listRowInsets(EdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10))
@@ -231,7 +256,7 @@ struct QuickAccessView: View {
                     .foregroundStyle(.red)
                     .lineLimit(2)
             } else {
-                Text("esc close · ↵ copy · ⌘O open")
+                Text(footerHint)
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
@@ -257,7 +282,7 @@ struct QuickAccessView: View {
     }
 
     private func close(restorePreviousApplication: Bool = true) {
-        closeAfterCopyTask?.cancel()
+        closeAfterActionTask?.cancel()
         appState.clipboard.dismissMessage()
         onClose(restorePreviousApplication)
     }
@@ -293,9 +318,27 @@ struct QuickAccessView: View {
         }
     }
 
+    private func performPrimaryAction(for entry: String) async {
+        switch primaryAction {
+        case .copy:
+            await copyPassword(for: entry)
+        case .autoType:
+            await autoTypePassword(for: entry)
+        }
+    }
+
+    private func performSecondaryAction(for entry: String) async {
+        switch primaryAction {
+        case .copy:
+            await autoTypePassword(for: entry)
+        case .autoType:
+            await copyPassword(for: entry)
+        }
+    }
+
     private func copyPassword(for entry: String) async {
         guard !appState.appLock.isBlocking else { return }
-        closeAfterCopyTask?.cancel()
+        closeAfterActionTask?.cancel()
         isLoading = true
         decryptErrorSummary = nil
         defer { isLoading = false }
@@ -303,7 +346,7 @@ struct QuickAccessView: View {
             let loaded = try await appState.loadEntry(entry)
             appState.metadataCache.update(from: loaded)
             appState.clipboard.copy(loaded.password)
-            closeAfterCopyTask = Task { @MainActor in
+            closeAfterActionTask = Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(450))
                 guard !Task.isCancelled else { return }
                 close()
@@ -318,10 +361,69 @@ struct QuickAccessView: View {
         }
     }
 
+    private func autoTypePassword(for entry: String) async {
+        guard !appState.appLock.isBlocking else { return }
+        guard AppPreferences.autoTypeEnabled else { return }
+
+        if !AutoTypeService.isTrusted(prompt: false) {
+            _ = AutoTypeService.isTrusted(prompt: true)
+            if !AutoTypeService.isTrusted(prompt: false) {
+                decryptErrorSummary = String(localized: "Allow Accessibility for NativePass to use Auto-Type.")
+                return
+            }
+        }
+
+        closeAfterActionTask?.cancel()
+        isLoading = true
+        decryptErrorSummary = nil
+        defer { isLoading = false }
+
+        let password: String
+        do {
+            let loaded = try await appState.loadEntry(entry)
+            appState.metadataCache.update(from: loaded)
+            password = loaded.password
+        } catch {
+            let guide = DecryptFailureAnalyzer.analyze(
+                error: error,
+                entryName: entry,
+                environment: appState.environment
+            )
+            decryptErrorSummary = guide.shortSummary
+            return
+        }
+
+        close(restorePreviousApplication: true)
+
+        let delay = AppPreferences.autoTypeDelayMilliseconds
+        if delay > 0 {
+            try? await Task.sleep(for: .milliseconds(delay))
+        }
+
+        do {
+            try AutoTypeService.typeText(password)
+        } catch {
+            await MainActor.run {
+                let alert = NSAlert()
+                alert.messageText = String(localized: "Auto-Type Failed")
+                alert.informativeText = error.localizedDescription
+                alert.alertStyle = .warning
+                alert.addButton(withTitle: String(localized: "OK"))
+                if error is AutoTypeError {
+                    alert.addButton(withTitle: String(localized: "Open Settings"))
+                }
+                let response = alert.runModal()
+                if response == .alertSecondButtonReturn {
+                    AutoTypeService.openAccessibilitySettings()
+                }
+            }
+        }
+    }
+
     private func openInMainWindow() {
         guard !appState.appLock.isBlocking else { return }
         guard let selectedEntry else { return }
-        closeAfterCopyTask?.cancel()
+        closeAfterActionTask?.cancel()
         appState.requestSelectEntry(selectedEntry)
         NSApp.activate(ignoringOtherApps: true)
         if let window = NSApp.windows.first(where: { $0.canBecomeMain }) {
@@ -336,7 +438,9 @@ private struct QuickAccessRow: View {
     let username: String?
     let hasURL: Bool
     let hasOTP: Bool
+    var showAutoType: Bool = false
     let onCopy: () -> Void
+    var onAutoType: (() -> Void)?
 
     @State private var isHovered = false
 
@@ -371,6 +475,16 @@ private struct QuickAccessRow: View {
                 Image(systemName: "clock.badge.checkmark")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            if showAutoType, let onAutoType {
+                Button(action: onAutoType) {
+                    Image(systemName: "keyboard")
+                        .font(.body)
+                }
+                .buttonStyle(.borderless)
+                .help("Type Password")
+                .opacity(isHovered ? 1 : 0.35)
             }
 
             Button(action: onCopy) {

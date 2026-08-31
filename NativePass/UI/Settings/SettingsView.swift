@@ -14,6 +14,10 @@ struct SettingsView: View {
     @State private var securityChangeError: String?
     @State private var selectedLanguage: AppLanguage = .system
     @State private var showLanguageRestartAlert = false
+    @State private var autoTypeEnabled = AppPreferences.autoTypeEnabled
+    @State private var quickAccessPrimaryAction = AppPreferences.quickAccessPrimaryAction
+    @State private var autoTypeDelay = AppPreferences.autoTypeDelayMilliseconds
+    @State private var accessibilityTrusted = AutoTypeService.isTrusted()
 
     var body: some View {
         Group {
@@ -181,9 +185,135 @@ struct SettingsView: View {
                     )
                 }
             }
+
+            Section {
+                Toggle("Enable Auto-Type", isOn: $autoTypeEnabled)
+                    .onChange(of: autoTypeEnabled) { _, value in
+                        AppPreferences.autoTypeEnabled = value
+                        if value, !AutoTypeService.isTrusted() {
+                            _ = AutoTypeService.isTrusted(prompt: true)
+                            accessibilityTrusted = AutoTypeService.isTrusted()
+                        }
+                    }
+
+                Picker("Return key action", selection: $quickAccessPrimaryAction) {
+                    ForEach(QuickAccessPrimaryAction.allCases) { action in
+                        Text(action.label).tag(action)
+                    }
+                }
+                .disabled(!autoTypeEnabled)
+                .onChange(of: quickAccessPrimaryAction) { _, value in
+                    AppPreferences.quickAccessPrimaryAction = value
+                }
+
+                LabeledContent("Delay before typing") {
+                    HStack(spacing: 8) {
+                        TextField(
+                            "Delay",
+                            value: $autoTypeDelay,
+                            format: .number
+                        )
+                        .labelsHidden()
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 64)
+                        .textFieldStyle(.roundedBorder)
+
+                        Text("ms")
+                            .foregroundStyle(.secondary)
+
+                        Stepper(
+                            "Delay before typing",
+                            value: $autoTypeDelay,
+                            in: 0...1_000,
+                            step: 50
+                        )
+                        .labelsHidden()
+                    }
+                }
+                .disabled(!autoTypeEnabled)
+                .onChange(of: autoTypeDelay) { _, value in
+                    let clamped = min(max(value, 0), 1_000)
+                    if clamped != value {
+                        autoTypeDelay = clamped
+                        return
+                    }
+                    AppPreferences.autoTypeDelayMilliseconds = clamped
+                }
+            } header: {
+                Text("Auto-Type")
+            } footer: {
+                Text("When enabled, Quick Access can type the password into the app that was focused before the popup opened.")
+            }
+
+            Section {
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: accessibilityTrusted ? "checkmark.seal.fill" : "lock.shield.fill")
+                        .font(.title2)
+                        .foregroundStyle(accessibilityTrusted ? Color.green : Color.orange)
+                        .frame(width: 28, alignment: .center)
+                        .accessibilityHidden(true)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(accessibilityTrusted
+                             ? String(localized: "Permission granted")
+                             : String(localized: "Permission needed"))
+                            .font(.body.weight(.semibold))
+
+                        Text(accessibilityTrusted
+                             ? String(localized: "NativePass may send keystrokes for Auto-Type.")
+                             : String(localized: "Add NativePass in Privacy & Security → Accessibility."))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    Text(accessibilityTrusted
+                         ? String(localized: "Allowed")
+                         : String(localized: "Required"))
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            (accessibilityTrusted ? Color.green : Color.orange).opacity(0.18),
+                            in: Capsule()
+                        )
+                        .foregroundStyle(accessibilityTrusted ? Color.green : Color.orange)
+                }
+                .padding(.vertical, 2)
+
+                HStack(spacing: 10) {
+                    Button {
+                        AutoTypeService.openAccessibilitySettings()
+                    } label: {
+                        Label("System Settings", systemImage: "gearshape")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.regular)
+
+                    Button {
+                        accessibilityTrusted = AutoTypeService.isTrusted(prompt: false)
+                    } label: {
+                        Label("Refresh", systemImage: "arrow.clockwise")
+                    }
+                    .buttonStyle(.borderless)
+                    .controlSize(.regular)
+                }
+            } header: {
+                Text("Accessibility")
+            } footer: {
+                Text("macOS requires Accessibility access before Auto-Type can work.")
+            }
         }
         .formStyle(.grouped)
         .padding()
+        .onAppear {
+            accessibilityTrusted = AutoTypeService.isTrusted()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            accessibilityTrusted = AutoTypeService.isTrusted()
+        }
     }
 
     private var securityTab: some View {
@@ -265,6 +395,10 @@ struct SettingsView: View {
         revealHideDelay = AppPreferences.revealHideDelay
         lockTimeout = appState.appLock.timeout
         selectedLanguage = AppLanguage.preference
+        autoTypeEnabled = AppPreferences.autoTypeEnabled
+        quickAccessPrimaryAction = AppPreferences.quickAccessPrimaryAction
+        autoTypeDelay = AppPreferences.autoTypeDelayMilliseconds
+        accessibilityTrusted = AutoTypeService.isTrusted()
     }
 
     private func applyLanguage(_ language: AppLanguage) {

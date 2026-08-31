@@ -1,6 +1,6 @@
 # Quick Access
 
-A floating popup for finding an entry and copying its password without opening the full NativePass window.
+A floating popup for finding an entry and copying (or typing) its password without opening the full NativePass window.
 
 ## Open and close
 
@@ -23,19 +23,39 @@ Change the global hotkey in **Settings → Quick Access**. Click the shortcut bu
 - The list shows up to **50** matches; narrow the query if you need something further down.
 - Arrow keys / click change the selection. The first result is selected automatically as you type.
 - Rows show the entry name, optional username (only if that entry was decrypted earlier in this session), and icons for URL / OTP when metadata is known.
-- Each row has a copy button; **↵** copies the **selected** entry.
+- Each row has a copy button; when Auto-Type is enabled, a keyboard button types the password into the previously focused app. **↵** runs the configured primary action.
 
 Search text in Quick Access is local to the popup — it does not sync with the main window search field.
 
 ## Copy password
 
 1. Select an entry (or leave the first match selected).
-2. Press **↵**, or use the row’s copy button.
+2. Press **↵** (if primary action is Copy), **⌘↵** (when Auto-Type is enabled and primary is Type), or use the row’s copy button.
 3. NativePass decrypts the entry, copies the **password** (first line) to the clipboard, shows a brief toast, then closes the popup after a short delay.
 
 Clipboard auto-clear follows **Settings → General → Clipboard** (same as the main app). Decrypt failures stay in the footer; the popup stays open so you can retry or dismiss.
 
 Only the password is copied this way — not username, URL, or OTP. Use **Open in NativePass** for the full entry.
+
+## Auto-Type
+
+Optional alternative to the clipboard: NativePass restores the previously focused app and synthesizes keystrokes for the password.
+
+Configure in **Settings → Quick Access**:
+
+- **Enable Auto-Type**
+- **Return key action** — Copy Password or Type Password (↵ vs ⌘↵ swap when both are available)
+- **Delay before typing** — pause after closing the popup so the target app can take focus (default 200 ms)
+- **Accessibility** — macOS must allow NativePass under **Privacy & Security → Accessibility**
+
+Flow when typing:
+
+1. Decrypt the entry.
+2. Close Quick Access and restore the previous frontmost app.
+3. Wait for the configured delay.
+4. Type the password character by character (Unicode-aware; Tab / Return for `\t` / newlines).
+
+If Accessibility is not granted, Quick Access stays open and shows an error in the footer.
 
 ## Open in the main window
 
