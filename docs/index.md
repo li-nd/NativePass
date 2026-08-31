@@ -17,8 +17,8 @@ Native macOS client for [pass](https://www.passwordstore.org/) — browse nested
 - [App Lock](app-lock.md) with Touch ID
 - [Quick Access](quick-access.md) popup (`⌥⌘P`) — search, copy, or Auto-Type
 
-<p align="center">
-  <img src="screenshots/12-quickaccess.png" alt="Quick Access" width="420">
+<p align="center" markdown>
+![Quick Access](screenshots/12-quickaccess.png){ width="420" }
 </p>
 
 ## Quick start

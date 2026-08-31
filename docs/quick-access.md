@@ -2,8 +2,8 @@
 
 A floating popup for finding an entry and copying (or typing) its password without opening the full NativePass window.
 
-<p align="center">
-  <img src="screenshots/12-quickaccess.png" alt="Quick Access" width="420">
+<p align="center" markdown>
+![Quick Access](screenshots/12-quickaccess.png){ width="420" }
 </p>
 
 ## Open and close
@@ -22,8 +22,8 @@ The panel appears near the mouse pointer (clamped to the current screen). Native
 
 Configure the hotkey and Auto-Type in **Settings → Quick Access**:
 
-<p align="center">
-  <img src="screenshots/11-settings-quickaccess.png" alt="Quick Access settings" width="560">
+<p align="center" markdown>
+![Quick Access settings](screenshots/11-settings-quickaccess.png){ width="560" }
 </p>
 
 - **Global hotkey** — click the shortcut button, press a new combination (at least one modifier), or **Reset** to restore ⌥⌘P. Esc cancels recording.
