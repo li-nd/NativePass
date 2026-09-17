@@ -3,6 +3,8 @@ import Foundation
 extension Notification.Name {
     static let nativePassNewEntry = Notification.Name("nativePassNewEntry")
     static let nativePassFocusSearch = Notification.Name("nativePassFocusSearch")
+    static let nativePassFocusPane = Notification.Name("nativePassFocusPane")
+    static let nativePassCyclePane = Notification.Name("nativePassCyclePane")
     static let nativePassCopyPassword = Notification.Name("nativePassCopyPassword")
     static let nativePassCopyRawEntry = Notification.Name("nativePassCopyRawEntry")
     static let nativePassPasswordCopiedInline = Notification.Name("nativePassPasswordCopiedInline")

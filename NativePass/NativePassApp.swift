@@ -62,6 +62,20 @@ struct NativePassApp: App {
                 .keyboardShortcut("f", modifiers: .command)
                 .disabled(isBlocking)
 
+                Button("Focus Sidebar") {
+                    MainPaneFocusNotification.post(.sidebar)
+                }
+                .keyboardShortcut("1", modifiers: .command)
+                .disabled(isBlocking)
+
+                Button("Focus Entry List") {
+                    MainPaneFocusNotification.post(.list)
+                }
+                .keyboardShortcut("2", modifiers: .command)
+                .disabled(isBlocking)
+
+                Divider()
+
                 Button("Copy Password") {
                     NotificationCenter.default.post(name: Notification.Name.nativePassCopyPassword, object: nil)
                 }
