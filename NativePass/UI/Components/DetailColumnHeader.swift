@@ -40,10 +40,13 @@ struct DetailToolbarActions: View {
     var body: some View {
         if controller.isEditing {
             Button("Cancel") { controller.cancel() }
+                .keyboardShortcut(.cancelAction)
             Button("Save") { controller.save() }
+                .keyboardShortcut("s", modifiers: .command)
                 .disabled(!controller.canSave)
         } else if controller.showEditButton {
             Button("Edit") { controller.edit() }
+                .keyboardShortcut("e", modifiers: .command)
         }
     }
 }

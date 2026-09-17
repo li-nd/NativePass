@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct MainView: View {
@@ -5,6 +6,8 @@ struct MainView: View {
     @State private var editorMode: EntryEditorMode?
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var detailPaneController = DetailPaneController()
+    /// Sole source of truth for region keyboard navigation (Tab / ⌘1–2 / ⌘F).
+    @State private var activePane: MainPaneFocus = .list
     @FocusState private var isSearchFocused: Bool
 
     private var categoryEntries: [String] {
@@ -20,8 +23,15 @@ struct MainView: View {
         if query.isEmpty {
             return categoryEntries
         }
-        // Search ignores the sidebar category and ranks the whole store.
         return EntrySearch.ranked(appState.entries, query: query)
+    }
+
+    private var listEntries: [String] {
+        let query = appState.searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if query.isEmpty {
+            return appState.entrySortOrder.sorted(displayedEntries)
+        }
+        return displayedEntries
     }
 
     private var suggestedPath: String? {
@@ -60,7 +70,6 @@ struct MainView: View {
             )
             .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 280)
             .onChange(of: appState.selectedCategory) { _, _ in
-                // Preserve a pending jump (e.g. Quick Access → main window).
                 if appState.pendingSelectEntry != nil { return }
                 appState.selectedEntry = nil
                 detailPaneController.reset()
@@ -104,6 +113,19 @@ struct MainView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
+        .background {
+            LocalKeyboardMonitor { event, window in
+                handleLocalKeyEvent(event, window: window)
+            }
+        }
+        .onKeyPress(.escape) {
+            handleEscape()
+        }
+        .onChange(of: isSearchFocused) { _, focused in
+            if focused {
+                activePane = .search
+            }
+        }
         .sheet(item: $editorMode) { mode in
             EntryEditorSheet(mode: mode) { savedName in
                 appState.selectedEntry = savedName
@@ -130,6 +152,15 @@ struct MainView: View {
         .onReceive(NotificationCenter.default.publisher(for: .nativePassFocusSearch)) { _ in
             guard !appState.appLock.isBlocking else { return }
             focusSearch()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .nativePassFocusPane)) { notification in
+            guard !appState.appLock.isBlocking else { return }
+            guard let pane = MainPaneFocusNotification.pane(from: notification) else { return }
+            focusPane(pane)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .nativePassCyclePane)) { notification in
+            guard !appState.appLock.isBlocking else { return }
+            cyclePane(backward: MainPaneFocusNotification.isBackward(from: notification))
         }
         .onReceive(NotificationCenter.default.publisher(for: .nativePassCopyPassword)) { _ in
             guard !appState.appLock.isBlocking else { return }
@@ -167,11 +198,48 @@ struct MainView: View {
         }
         .onAppear {
             pruneInvalidNavigation(using: appState.entries)
+            activePane = .list
+            DispatchQueue.main.async {
+                focusPane(.list)
+            }
         }
     }
 
     func focusSearch() {
+        activePane = .search
         isSearchFocused = true
+    }
+
+    func focusPane(_ pane: MainPaneFocus, window: NSWindow? = nil) {
+        activePane = pane
+
+        if pane == .search {
+            isSearchFocused = true
+            return
+        }
+
+        isSearchFocused = false
+        let targetWindow = AppKitFocusHelper.preferredWindow(fallback: window)
+        AppKitFocusHelper.focusMainPane(pane, in: targetWindow)
+        DispatchQueue.main.async {
+            activePane = pane
+            isSearchFocused = false
+            AppKitFocusHelper.focusMainPane(
+                pane,
+                in: AppKitFocusHelper.preferredWindow(fallback: targetWindow)
+            )
+        }
+    }
+
+    func cyclePane(backward: Bool) {
+        // While editing an entry, keep system Tab for form fields.
+        if detailPaneController.isEditing {
+            return
+        }
+        if isSearchFocused {
+            activePane = .search
+        }
+        focusPane(nextPane(from: activePane, backward: backward))
     }
 
     func showNewEntry() {
@@ -210,6 +278,82 @@ struct MainView: View {
                 appState.clipboard.copy(entry.rawContent)
             }
         }
+    }
+
+    private func handleEscape() -> KeyPress.Result {
+        if detailPaneController.isEditing {
+            detailPaneController.cancel()
+            return .handled
+        }
+
+        if isSearchFocused || activePane == .search {
+            if !appState.searchText.isEmpty {
+                appState.searchText = ""
+            }
+            focusPane(.list)
+            return .handled
+        }
+
+        return .ignored
+    }
+
+    private func handleLocalKeyEvent(_ event: NSEvent, window: NSWindow?) -> NSEvent? {
+        if editorMode != nil { return event }
+
+        let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
+
+        // ⌘1 / ⌘2
+        if modifiers == .command, !detailPaneController.isEditing {
+            switch event.keyCode {
+            case KeyboardKeyCode.one:
+                DispatchQueue.main.async { focusPane(.sidebar, window: window) }
+                return nil
+            case KeyboardKeyCode.two:
+                DispatchQueue.main.async { focusPane(.list, window: window) }
+                return nil
+            default:
+                break
+            }
+        }
+
+        if event.keyCode == KeyboardKeyCode.tab {
+            let nonShift = modifiers.subtracting(.shift)
+            guard nonShift.isEmpty else { return event }
+            // While editing, let Tab move between form controls.
+            if detailPaneController.isEditing {
+                return event
+            }
+            let backward = modifiers.contains(.shift)
+            DispatchQueue.main.async {
+                MainPaneFocusNotification.postCycle(backward: backward)
+            }
+            return nil
+        }
+
+        let searchActive = isSearchFocused || activePane == .search
+        guard searchActive else { return event }
+        guard modifiers.isEmpty else { return event }
+        guard !detailPaneController.isEditing else { return event }
+
+        let delta: Int
+        switch event.keyCode {
+        case KeyboardKeyCode.downArrow: delta = 1
+        case KeyboardKeyCode.upArrow: delta = -1
+        default: return event
+        }
+
+        var selection = appState.selectedEntry
+        ListSelectionMovement.move(selection: &selection, in: listEntries, delta: delta)
+        appState.selectedEntry = selection
+        return nil
+    }
+
+    private func nextPane(from current: MainPaneFocus, backward: Bool) -> MainPaneFocus {
+        let order: [MainPaneFocus] = [.sidebar, .list, .search]
+        guard let index = order.firstIndex(of: current) else { return .list }
+        let offset = backward ? -1 : 1
+        let nextIndex = (index + offset + order.count) % order.count
+        return order[nextIndex]
     }
 
     private func pruneInvalidNavigation(using entries: [String]) {

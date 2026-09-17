@@ -34,7 +34,7 @@ Spaces in the query separate tokens; they are not a literal space you must find 
 
 ## Where search appears
 
-- **Main window** — macOS search field in the detail column. While the query is non-empty, the list shows matches from the **entire store**; the sidebar category (folder / All / Verification Codes) is ignored. Clear the query to browse the selected category again. With an empty query, Name/Path sort applies; with a query, order is by match relevance.
+- **Main window** — macOS search field in the detail column (**⌘F**). While the query is non-empty, the list shows matches from the **entire store**; the sidebar category (folder / All / Verification Codes) is ignored. **↑ / ↓** move the selected entry while search stays focused; **Esc** clears the query and returns focus to the list. Clear the query to browse the selected category again. With an empty query, Name/Path sort applies; with a query, order is by match relevance.
 - **Quick Access** (`⌥⌘P`) — same fuzzy rules over the whole store (first 50 matches in the list).
 
 Opening an entry from Quick Access into the main window clears the main-window search and selects **All**.

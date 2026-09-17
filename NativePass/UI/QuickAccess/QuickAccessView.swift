@@ -155,19 +155,9 @@ struct QuickAccessView: View {
             appState.clipboard.dismissMessage()
         }
         .background {
-            QuickAccessKeyboardMonitor(
-                focusTarget: focusTarget,
-                onMoveSelection: { moveSelection(delta: $0) },
-                onFocusList: {
-                    ensureSelectionExists()
-                    guard !visibleEntries.isEmpty else { return false }
-                    focusTarget = .list
-                    return true
-                },
-                onFocusSearch: {
-                    focusTarget = .search
-                }
-            )
+            LocalKeyboardMonitor { event, window in
+                handleQuickAccessKeyEvent(event, window: window)
+            }
         }
         .onKeyPress(keys: [.return], phases: .down) { press in
             guard let selectedEntry else { return .handled }
@@ -183,6 +173,48 @@ struct QuickAccessView: View {
             openInMainWindow()
             return .handled
         }
+    }
+
+    private func handleQuickAccessKeyEvent(_ event: NSEvent, window: NSWindow?) -> NSEvent? {
+        let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
+
+        // Tab / Shift+Tab — transfer focus between search and list
+        if event.keyCode == KeyboardKeyCode.tab {
+            let nonShift = modifiers.subtracting(.shift)
+            guard nonShift.isEmpty else { return event }
+
+            if modifiers.contains(.shift) || focusTarget == .list {
+                focusTarget = .search
+                DispatchQueue.main.async {
+                    AppKitFocusHelper.focusEditableSearchField(in: window)
+                }
+            } else {
+                ensureSelectionExists()
+                guard !visibleEntries.isEmpty else { return nil }
+                focusTarget = .list
+                DispatchQueue.main.async {
+                    // Quick Access has a single results table in its panel.
+                    AppKitFocusHelper.focusTableNearAnchor(
+                        in: window,
+                        anchorID: FocusAnchorID.quickAccessList
+                    )
+                }
+            }
+            return nil
+        }
+
+        // ↑ / ↓ while search is focused (including key-repeat)
+        guard focusTarget == .search else { return event }
+        guard modifiers.isEmpty else { return event }
+
+        let delta: Int
+        switch event.keyCode {
+        case KeyboardKeyCode.downArrow: delta = 1
+        case KeyboardKeyCode.upArrow: delta = -1
+        default: return event
+        }
+        moveSelection(delta: delta)
+        return nil
     }
 
     private var header: some View {
@@ -328,15 +360,9 @@ struct QuickAccessView: View {
     }
 
     private func moveSelection(delta: Int) {
-        let entries = visibleEntries
-        guard !entries.isEmpty else { return }
-
-        if let selectedEntry, let index = entries.firstIndex(of: selectedEntry) {
-            let next = min(max(index + delta, 0), entries.count - 1)
-            self.selectedEntry = entries[next]
-        } else {
-            selectedEntry = delta >= 0 ? entries.first : entries.last
-        }
+        var selection = selectedEntry
+        ListSelectionMovement.move(selection: &selection, in: visibleEntries, delta: delta)
+        selectedEntry = selection
     }
 
     private func close(restorePreviousApplication: Bool = true) {
@@ -488,147 +514,6 @@ struct QuickAccessView: View {
             window.makeKeyAndOrderFront(nil)
         }
         close(restorePreviousApplication: false)
-    }
-}
-
-/// Local key monitor: system key-repeat for ↑/↓ in search, and Tab focus transfer
-/// (AppKit TextField swallows Tab before SwiftUI `onKeyPress`).
-private struct QuickAccessKeyboardMonitor: NSViewRepresentable {
-    var focusTarget: QuickAccessView.FocusTarget?
-    var onMoveSelection: (Int) -> Void
-    /// Returns `false` if list focus was refused (e.g. empty results).
-    var onFocusList: () -> Bool
-    var onFocusSearch: () -> Void
-
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        context.coordinator.hostView = view
-        context.coordinator.onMoveSelection = onMoveSelection
-        context.coordinator.onFocusList = onFocusList
-        context.coordinator.onFocusSearch = onFocusSearch
-        context.coordinator.focusTarget = focusTarget
-        context.coordinator.installMonitor()
-        return view
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {
-        context.coordinator.hostView = nsView
-        context.coordinator.onMoveSelection = onMoveSelection
-        context.coordinator.onFocusList = onFocusList
-        context.coordinator.onFocusSearch = onFocusSearch
-        context.coordinator.focusTarget = focusTarget
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
-
-    final class Coordinator {
-        weak var hostView: NSView?
-        var focusTarget: QuickAccessView.FocusTarget?
-        var onMoveSelection: ((Int) -> Void)?
-        var onFocusList: (() -> Bool)?
-        var onFocusSearch: (() -> Void)?
-        private var monitor: Any?
-
-        func installMonitor() {
-            guard monitor == nil else { return }
-            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                self?.handle(event) ?? event
-            }
-        }
-
-        private func handle(_ event: NSEvent) -> NSEvent? {
-            guard let hostView, hostView.window != nil else { return event }
-            if let eventWindow = event.window, eventWindow !== hostView.window {
-                return event
-            }
-
-            let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
-
-            // Tab / Shift+Tab — transfer focus between search and list
-            if event.keyCode == 48 {
-                let nonShift = modifiers.subtracting(.shift)
-                guard nonShift.isEmpty else { return event }
-
-                if modifiers.contains(.shift) || focusTarget == .list {
-                    onFocusSearch?()
-                    DispatchQueue.main.async { [weak self] in
-                        self?.makeSearchFirstResponder()
-                    }
-                } else {
-                    guard onFocusList?() == true else { return nil }
-                    DispatchQueue.main.async { [weak self] in
-                        self?.makeListFirstResponder()
-                    }
-                }
-                return nil
-            }
-
-            // ↑ / ↓ while search is focused (including key-repeat)
-            guard focusTarget == .search else { return event }
-            guard modifiers.isEmpty else { return event }
-
-            let delta: Int
-            switch event.keyCode {
-            case 125: delta = 1
-            case 126: delta = -1
-            default: return event
-            }
-            onMoveSelection?(delta)
-            return nil
-        }
-
-        private func makeSearchFirstResponder() {
-            guard let window = hostView?.window,
-                  let field = Self.findEditableTextField(in: window.contentView) else { return }
-            window.makeFirstResponder(field)
-        }
-
-        private func makeListFirstResponder() {
-            guard let window = hostView?.window else { return }
-            if let table = Self.findTableView(in: window.contentView) {
-                window.makeFirstResponder(table)
-                return
-            }
-            // Fall back: resign text field so List can take SwiftUI focus.
-            if let field = Self.findEditableTextField(in: window.contentView) {
-                field.resignFirstResponder()
-            }
-            window.makeFirstResponder(nil)
-        }
-
-        private static func findEditableTextField(in root: NSView?) -> NSTextField? {
-            guard let root else { return nil }
-            if let textField = root as? NSTextField, textField.isEditable {
-                return textField
-            }
-            for subview in root.subviews {
-                if let found = findEditableTextField(in: subview) {
-                    return found
-                }
-            }
-            return nil
-        }
-
-        private static func findTableView(in root: NSView?) -> NSTableView? {
-            guard let root else { return nil }
-            if let table = root as? NSTableView {
-                return table
-            }
-            for subview in root.subviews {
-                if let found = findTableView(in: subview) {
-                    return found
-                }
-            }
-            return nil
-        }
-
-        deinit {
-            if let monitor {
-                NSEvent.removeMonitor(monitor)
-            }
-        }
     }
 }
 
