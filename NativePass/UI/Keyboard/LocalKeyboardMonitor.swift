@@ -62,6 +62,8 @@ enum FocusAnchorID {
 
 enum KeyboardKeyCode {
     static let tab: UInt16 = 48
+    static let returnKey: UInt16 = 36
+    static let escape: UInt16 = 53
     static let downArrow: UInt16 = 125
     static let upArrow: UInt16 = 126
     static let one: UInt16 = 18

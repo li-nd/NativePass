@@ -16,8 +16,8 @@ final class EntryMetadataCache {
     }
 
     func update(from entry: PassEntry) {
-        let username = entry.fields.first { $0.key.lowercased() == "username" }?.value
-        let url = entry.fields.first { $0.key.lowercased() == "url" }?.value
+        let username = QuickAccessFieldResolver.usernameValue(from: entry)
+        let url = QuickAccessFieldResolver.urlValue(from: entry)
         cache[entry.name] = EntryMetadata(
             hasOTP: entry.hasOTPMarker,
             username: username,

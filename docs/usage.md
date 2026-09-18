@@ -35,7 +35,7 @@ Focus regions (⇥ cycles **sidebar → list → search**; ⇧⇥ reverses). Whi
 | **⌘,** | Settings |
 | **⌥⌘P** | [Quick Access](quick-access.md) (configurable) |
 
-Quick Access has its own keys (**esc**, **↑↓**, **⇥**, **↵**, **⌘↵**, **⌘O**) — see [Quick Access](quick-access.md).
+Quick Access has its own keys (**esc**, **↑↓**, **⇥**, **↵**, **⌘↵**, **⌥⌘↵**, **⌘O**) — see [Quick Access](quick-access.md).
 
 
 ![Nested folders](screenshots/4-nested-folders.png)

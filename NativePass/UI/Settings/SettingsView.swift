@@ -17,6 +17,7 @@ struct SettingsView: View {
     @State private var autoTypeEnabled = AppPreferences.autoTypeEnabled
     @State private var quickAccessPrimaryAction = AppPreferences.quickAccessPrimaryAction
     @State private var autoTypeDelay = AppPreferences.autoTypeDelayMilliseconds
+    @State private var showFieldPreviews = AppPreferences.showQuickAccessFieldPreviews
     @State private var accessibilityTrusted = AutoTypeService.isTrusted()
 
     var body: some View {
@@ -246,6 +247,17 @@ struct SettingsView: View {
             }
 
             Section {
+                Toggle("Show field value previews", isOn: $showFieldPreviews)
+                    .onChange(of: showFieldPreviews) { _, value in
+                        AppPreferences.showQuickAccessFieldPreviews = value
+                    }
+            } header: {
+                Text("Field Picker")
+            } footer: {
+                Text("When enabled, ⌥⌘↵ shows a short preview of each field value (including a live OTP code).")
+            }
+
+            Section {
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: accessibilityTrusted ? "checkmark.seal.fill" : "lock.shield.fill")
                         .font(.title2)
@@ -398,6 +410,7 @@ struct SettingsView: View {
         autoTypeEnabled = AppPreferences.autoTypeEnabled
         quickAccessPrimaryAction = AppPreferences.quickAccessPrimaryAction
         autoTypeDelay = AppPreferences.autoTypeDelayMilliseconds
+        showFieldPreviews = AppPreferences.showQuickAccessFieldPreviews
         accessibilityTrusted = AutoTypeService.isTrusted()
     }
 

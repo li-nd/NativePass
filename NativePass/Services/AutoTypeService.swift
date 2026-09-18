@@ -18,6 +18,9 @@ enum AutoTypeError: LocalizedError {
 }
 
 enum AutoTypeService {
+    /// Modifiers that break HID unicode typing if still held (⌘↵ Auto-Type).
+    private static let typeBlockingModifiers: CGEventFlags = [.maskCommand]
+
     static func isTrusted(prompt: Bool = false) -> Bool {
         if prompt {
             let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
@@ -35,6 +38,45 @@ enum AutoTypeService {
             if let url = URL(string: candidate), NSWorkspace.shared.open(url) {
                 return
             }
+        }
+    }
+
+    @MainActor
+    static func areTypeBlockingModifiersPressed() -> Bool {
+        let flags = CGEventSource.flagsState(.hidSystemState)
+        return !flags.intersection(typeBlockingModifiers).isEmpty
+    }
+
+    /// Waits until ⌘ is released, `shouldContinue` becomes false, or timeout.
+    /// Returns `true` if modifiers were released cleanly.
+    @MainActor
+    static func waitForTypeBlockingModifiersReleased(
+        timeoutMilliseconds: UInt64 = 5_000,
+        shouldContinue: @MainActor () -> Bool = { true }
+    ) async -> Bool {
+        let deadline = ContinuousClock.now + .milliseconds(timeoutMilliseconds)
+        while ContinuousClock.now < deadline {
+            guard shouldContinue() else { return false }
+            if !areTypeBlockingModifiersPressed() {
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(16))
+        }
+        return !areTypeBlockingModifiersPressed()
+    }
+
+    @MainActor
+    static func waitUntilFrontmost(
+        _ application: NSRunningApplication,
+        timeoutMilliseconds: UInt64 = 800
+    ) async {
+        let deadline = ContinuousClock.now + .milliseconds(timeoutMilliseconds)
+        while ContinuousClock.now < deadline {
+            if application.isTerminated { return }
+            if NSWorkspace.shared.frontmostApplication?.processIdentifier == application.processIdentifier {
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(16))
         }
     }
 

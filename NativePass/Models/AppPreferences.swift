@@ -75,4 +75,15 @@ enum AppPreferences {
             UserDefaults.standard.set(clamped, forKey: "autoTypeDelayMilliseconds")
         }
     }
+
+    /// When true, the Quick Access field picker shows short value previews (and live OTP).
+    static var showQuickAccessFieldPreviews: Bool {
+        get {
+            if UserDefaults.standard.object(forKey: "showQuickAccessFieldPreviews") == nil {
+                return true
+            }
+            return UserDefaults.standard.bool(forKey: "showQuickAccessFieldPreviews")
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "showQuickAccessFieldPreviews") }
+    }
 }
