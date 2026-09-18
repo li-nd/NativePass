@@ -111,9 +111,15 @@ enum AppKitFocusHelper {
 
     static func preferredWindow(fallback: NSWindow? = nil) -> NSWindow? {
         if let fallback, fallback.isVisible { return fallback }
-        if let key = NSApp.keyWindow, key.isVisible { return key }
-        if let main = NSApp.mainWindow, main.isVisible { return main }
-        return NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain })
+        if let key = NSApp.keyWindow, key.isVisible, key.canBecomeMain, !(key is NSPanel) {
+            return key
+        }
+        if let main = NSApp.mainWindow, main.isVisible {
+            return main
+        }
+        return NSApp.windows.first(where: {
+            $0.isVisible && $0.canBecomeMain && !($0 is NSPanel)
+        })
     }
 
     static func findEditableTextField(in root: NSView?) -> NSTextField? {

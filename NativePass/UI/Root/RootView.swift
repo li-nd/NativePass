@@ -5,6 +5,7 @@ struct RootView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dismissWindow) private var dismissWindow
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         Group {
@@ -24,6 +25,11 @@ struct RootView: View {
         .task {
             await appState.bootstrap()
         }
+        .onAppear {
+            appState.bindOpenMainWindow {
+                openWindow(id: AppWindowID.main)
+            }
+        }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 appState.appLock.checkIdleLock()
@@ -34,7 +40,7 @@ struct RootView: View {
         }
         .onChange(of: appState.appLock.isLocked) { _, locked in
             if locked {
-                dismissWindow(id: "settings")
+                dismissWindow(id: AppWindowID.settings)
                 appState.purgeSensitiveStateOnLock()
             }
         }

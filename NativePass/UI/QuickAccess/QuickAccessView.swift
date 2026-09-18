@@ -509,10 +509,7 @@ struct QuickAccessView: View {
         guard let selectedEntry else { return }
         closeAfterActionTask?.cancel()
         appState.requestSelectEntry(selectedEntry)
-        NSApp.activate(ignoringOtherApps: true)
-        if let window = NSApp.windows.first(where: { $0.canBecomeMain }) {
-            window.makeKeyAndOrderFront(nil)
-        }
+        appState.revealMainWindow()
         close(restorePreviousApplication: false)
     }
 }
