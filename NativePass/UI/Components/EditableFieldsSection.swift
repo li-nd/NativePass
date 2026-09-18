@@ -22,11 +22,26 @@ struct EditableFieldsSection: View {
                 DetailGroupDivider()
             }
             HStack(alignment: .firstTextBaseline, spacing: 12) {
-                TextField("Key", text: binding(for: field.id, keyPath: \.key))
-                    .frame(minWidth: 100, alignment: .leading)
+                TextField(
+                    "",
+                    text: binding(for: field.id, keyPath: \.key),
+                    prompt: Text("Field").foregroundStyle(.tertiary)
+                )
+                .textFieldStyle(.plain)
+                .focusEffectDisabled()
+                .frame(minWidth: 100, alignment: .leading)
+
                 Spacer(minLength: 8)
-                TextField("Value", text: binding(for: field.id, keyPath: \.value))
-                    .multilineTextAlignment(.trailing)
+
+                TextField(
+                    "",
+                    text: binding(for: field.id, keyPath: \.value),
+                    prompt: Text("Value").foregroundStyle(.tertiary)
+                )
+                .textFieldStyle(.plain)
+                .focusEffectDisabled()
+                .multilineTextAlignment(.trailing)
+
                 Button(role: .destructive) {
                     fields.removeAll { $0.id == field.id }
                 } label: {

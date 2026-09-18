@@ -135,6 +135,9 @@ struct MainView: View {
         .onChange(of: appState.entries) { _, entries in
             pruneInvalidNavigation(using: entries)
         }
+        .onAppear {
+            applyPendingSelectEntryIfNeeded()
+        }
         .onChange(of: appState.pendingSelectEntry) { _, newValue in
             if let newValue {
                 appState.selectedEntry = newValue
@@ -372,5 +375,10 @@ struct MainView: View {
                 detailPaneController.reset()
             }
         }
+    }
+
+    private func applyPendingSelectEntryIfNeeded() {
+        guard let pending = appState.consumePendingSelectEntry() else { return }
+        appState.selectedEntry = pending
     }
 }

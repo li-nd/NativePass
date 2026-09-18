@@ -228,26 +228,24 @@ struct EntryDetailView: View {
                 onRevealToggle: togglePasswordReveal,
                 onGenerate: generatePassword
             )
+        }
 
+        VerificationCodeDetailSection(
+            entryName: entryName,
+            hasOTPMarker: draftBinding.wrappedValue.otpauthLine != nil,
+            isEditing: true,
+            otpauthLine: draftBinding.otpauthLine,
+            pendingOTPInput: draftBinding.pendingOTPURI
+        )
+
+        DetailGroupCard {
             if !draftBinding.wrappedValue.fields.isEmpty {
-                DetailGroupDivider()
                 EditableFieldsSection(fields: draftBinding.fields)
             } else {
-                DetailGroupDivider()
                 DetailGroupActionRow(title: "Add Field") {
                     draft?.fields.append(EditableField(key: "", value: ""))
                 }
             }
-        }
-
-        if appState.registry.hasOTP || draftBinding.wrappedValue.otpauthLine != nil {
-            VerificationCodeDetailSection(
-                entryName: entryName,
-                hasOTPMarker: draftBinding.wrappedValue.otpauthLine != nil,
-                otpauthLine: draftBinding.wrappedValue.otpauthLine,
-                isEditing: true,
-                pendingOTPURI: draftBinding.pendingOTPURI
-            )
         }
 
         DetailGroupCard {
@@ -269,31 +267,32 @@ struct EntryDetailView: View {
                 onRevealToggle: togglePasswordReveal,
                 onGenerate: nil
             )
-
-            if !entry.fields.isEmpty {
-                DetailGroupDivider()
-                EntryFieldsViewSection(
-                    fields: entry.fields,
-                    onCopy: { appState.clipboard.copy($0) }
-                )
-            }
         }
 
         if entry.hasOTPMarker {
             VerificationCodeDetailSection(
                 entryName: entry.name,
                 hasOTPMarker: true,
-                otpauthLine: entry.otpauthLine,
                 isEditing: false,
-                pendingOTPURI: .constant("")
+                otpauthLine: .constant(entry.otpauthLine),
+                pendingOTPInput: .constant("")
             )
+        }
+
+        if !entry.fields.isEmpty {
+            DetailGroupCard {
+                EntryFieldsViewSection(
+                    fields: entry.fields,
+                    onCopy: { appState.clipboard.copy($0) }
+                )
+            }
         }
     }
 
     private var draftBinding: Binding<EntryEditDraft>? {
-        guard let draft else { return nil }
+        guard draft != nil else { return nil }
         return Binding(
-            get: { draft },
+            get: { self.draft! },
             set: { self.draft = $0 }
         )
     }
@@ -421,18 +420,23 @@ struct EntryDetailView: View {
         isSaving = true
         defer { isSaving = false }
 
-        let content = draft.toSerializedContent()
         let pendingOTP = draft.pendingOTPURI.trimmingCharacters(in: .whitespacesAndNewlines)
 
         do {
             if newPath != entryName {
                 try await appState.renameEntry(from: entryName, to: newPath)
             }
-            try await appState.saveEntry(newPath, content: content, force: true)
 
-            if !pendingOTP.isEmpty, draft.otpauthLine == nil {
-                try await appState.cli.otpAppend(newPath, uri: pendingOTP)
+            var otpLine = draft.otpauthLine
+            if otpLine == nil, !pendingOTP.isEmpty {
+                otpLine = try TOTPGenerator.makeOTPAuthURI(fromSetupInput: pendingOTP, account: newPath)
             }
+            let content = PassEntrySerializer.serialize(
+                password: draft.password,
+                fields: draft.toPassFields(),
+                otpauthLine: otpLine
+            )
+            try await appState.saveEntry(newPath, content: content, force: true)
 
             resetEditState()
             showRaw = false

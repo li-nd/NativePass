@@ -3,6 +3,7 @@ import SwiftUI
 
 @main
 struct NativePassApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var appState = AppState()
     @Environment(\.openWindow) private var openWindow
 
@@ -24,7 +25,7 @@ struct NativePassApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
+        Window(AppMetadata.applicationName, id: AppWindowID.main) {
             RootView()
                 .environment(appState)
                 .environment(\.locale, preferredLocale)
@@ -41,7 +42,7 @@ struct NativePassApp: App {
             CommandGroup(replacing: .appSettings) {
                 Button("Settings…") {
                     guard !isBlocking else { return }
-                    openWindow(id: "settings")
+                    openWindow(id: AppWindowID.settings)
                 }
                 .keyboardShortcut(",", modifiers: .command)
                 .disabled(isBlocking)
@@ -112,7 +113,7 @@ struct NativePassApp: App {
             }
         }
 
-        Window("Settings", id: "settings") {
+        Window("Settings", id: AppWindowID.settings) {
             SettingsView()
                 .environment(appState)
                 .environment(\.locale, preferredLocale)
@@ -123,6 +124,9 @@ struct NativePassApp: App {
 
         MenuBarExtra("NativePass", systemImage: "key") {
             Button("Quick Access") {
+                appState.bindOpenMainWindow {
+                    openWindow(id: AppWindowID.main)
+                }
                 appState.quickAccess.toggle()
             }
             .keyboardShortcut(
@@ -131,10 +135,10 @@ struct NativePassApp: App {
             )
 
             Button("Open NativePass") {
-                NSApp.activate(ignoringOtherApps: true)
-                if let window = NSApp.windows.first(where: { $0.canBecomeMain }) {
-                    window.makeKeyAndOrderFront(nil)
+                appState.bindOpenMainWindow {
+                    openWindow(id: AppWindowID.main)
                 }
+                appState.revealMainWindow()
             }
 
             Divider()

@@ -33,6 +33,10 @@ final class AppState {
 
     private var storeWatcher: StoreFileWatcher?
 
+    /// SwiftUI `openWindow(id:)` callback — kept so main window can be recreated after close.
+    @ObservationIgnored
+    private var openMainWindowHandler: (@MainActor () -> Void)?
+
     var isReady: Bool {
         environment.isPassAvailable && environment.isStoreInitialized
     }
@@ -122,15 +126,94 @@ final class AppState {
 
     @MainActor
     func requestSelectEntry(_ name: String) {
-        pendingSelectEntry = name
         selectedCategory = .all
         searchText = ""
+        selectedEntry = name
+        pendingSelectEntry = name
     }
 
     @MainActor
     func consumePendingSelectEntry() -> String? {
         defer { pendingSelectEntry = nil }
         return pendingSelectEntry
+    }
+
+    @MainActor
+    func bindOpenMainWindow(_ handler: @escaping @MainActor () -> Void) {
+        openMainWindowHandler = handler
+    }
+
+    /// Bring the main window forward, deminiaturize, or recreate it if it was closed.
+    @MainActor
+    func revealMainWindow() {
+        let candidates = Self.mainWindowCandidates()
+        if let window = Self.pickMainWindow(from: candidates) {
+            Self.presentMainWindow(window)
+            Self.closeDuplicateMainWindows(keeping: window, from: candidates)
+            return
+        }
+
+        openMainWindowHandler?()
+        NSApp.activate(ignoringOtherApps: true)
+
+        Task { @MainActor in
+            for delay in [16, 50, 100, 250, 500] as [UInt64] {
+                try? await Task.sleep(for: .milliseconds(delay))
+                let candidates = Self.mainWindowCandidates()
+                if let window = Self.pickMainWindow(from: candidates) {
+                    Self.presentMainWindow(window)
+                    Self.closeDuplicateMainWindows(keeping: window, from: candidates)
+                    return
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private static func presentMainWindow(_ window: NSWindow) {
+        if window.isMiniaturized {
+            window.deminiaturize(nil)
+        }
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @MainActor
+    private static func mainWindowCandidates() -> [NSWindow] {
+        NSApp.windows.filter(isMainWindowCandidate)
+    }
+
+    @MainActor
+    private static func pickMainWindow(from candidates: [NSWindow]) -> NSWindow? {
+        candidates.first(where: { $0.isVisible && !$0.isMiniaturized })
+            ?? candidates.first(where: \.isMiniaturized)
+            ?? candidates.first
+    }
+
+    @MainActor
+    private static func closeDuplicateMainWindows(keeping keep: NSWindow, from candidates: [NSWindow]) {
+        for window in candidates where window !== keep {
+            window.close()
+        }
+    }
+
+    /// Miniaturized windows often report `canBecomeMain == false`, so include them explicitly.
+    private static func isMainWindowCandidate(_ window: NSWindow) -> Bool {
+        if window is NSPanel { return false }
+        if isMainWindowExcluded(window) { return false }
+        if window.identifier?.rawValue == AppWindowID.main { return true }
+        return window.canBecomeMain || window.isMiniaturized
+    }
+
+    private static func isMainWindowExcluded(_ window: NSWindow) -> Bool {
+        if window.identifier?.rawValue == AppWindowID.settings {
+            return true
+        }
+        if window.title.localizedCaseInsensitiveContains("settings") {
+            return true
+        }
+        let className = String(describing: type(of: window))
+        return className.localizedCaseInsensitiveContains("Settings")
     }
 
     @MainActor
@@ -230,7 +313,7 @@ final class AppState {
             }
         }
 
-        return window.identifier?.rawValue == "settings"
+        return window.identifier?.rawValue == AppWindowID.settings
     }
 
     @MainActor

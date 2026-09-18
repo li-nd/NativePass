@@ -41,16 +41,17 @@ final class QuickAccessController: @unchecked Sendable {
     }
 
     @MainActor
-    func hide(restorePreviousApplication: Bool = true) {
+    @discardableResult
+    func hide(restorePreviousApplication: Bool = true) -> NSRunningApplication? {
         focusTask?.cancel()
         focusTask = nil
         removeKeyMonitor()
         panel?.orderOut(nil)
         if restorePreviousApplication {
-            restorePreviousApplicationIfNeeded()
-        } else {
-            previousApplication = nil
+            return restorePreviousApplicationIfNeeded()
         }
+        previousApplication = nil
+        return nil
     }
 
     @MainActor
@@ -79,15 +80,17 @@ final class QuickAccessController: @unchecked Sendable {
     }
 
     @MainActor
-    private func restorePreviousApplicationIfNeeded() {
-        guard let previousApplication else { return }
+    @discardableResult
+    private func restorePreviousApplicationIfNeeded() -> NSRunningApplication? {
+        guard let previousApplication else { return nil }
         defer { self.previousApplication = nil }
 
-        guard !previousApplication.isTerminated else { return }
+        guard !previousApplication.isTerminated else { return nil }
         if previousApplication.bundleIdentifier == Bundle.main.bundleIdentifier {
-            return
+            return nil
         }
         previousApplication.activate(options: [])
+        return previousApplication
     }
 
     @MainActor
@@ -137,7 +140,7 @@ final class QuickAccessController: @unchecked Sendable {
         )
 
         let hosting = NSHostingView(rootView: QuickAccessView(onClose: { [weak self] restorePreviousApplication in
-            Task { @MainActor in self?.hide(restorePreviousApplication: restorePreviousApplication) }
+            self?.hide(restorePreviousApplication: restorePreviousApplication)
         }).environment(appState))
         hosting.frame = outer.bounds
         hosting.autoresizingMask = [.width, .height]

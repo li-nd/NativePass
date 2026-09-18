@@ -62,6 +62,8 @@ enum FocusAnchorID {
 
 enum KeyboardKeyCode {
     static let tab: UInt16 = 48
+    static let returnKey: UInt16 = 36
+    static let escape: UInt16 = 53
     static let downArrow: UInt16 = 125
     static let upArrow: UInt16 = 126
     static let one: UInt16 = 18
@@ -111,9 +113,15 @@ enum AppKitFocusHelper {
 
     static func preferredWindow(fallback: NSWindow? = nil) -> NSWindow? {
         if let fallback, fallback.isVisible { return fallback }
-        if let key = NSApp.keyWindow, key.isVisible { return key }
-        if let main = NSApp.mainWindow, main.isVisible { return main }
-        return NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain })
+        if let key = NSApp.keyWindow, key.isVisible, key.canBecomeMain, !(key is NSPanel) {
+            return key
+        }
+        if let main = NSApp.mainWindow, main.isVisible {
+            return main
+        }
+        return NSApp.windows.first(where: {
+            $0.isVisible && $0.canBecomeMain && !($0 is NSPanel)
+        })
     }
 
     static func findEditableTextField(in root: NSView?) -> NSTextField? {
