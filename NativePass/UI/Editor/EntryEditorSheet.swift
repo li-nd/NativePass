@@ -43,26 +43,24 @@ struct EntryEditorSheet: View {
                             onRevealToggle: { isPasswordRevealed.toggle() },
                             onGenerate: generatePassword
                         )
+                    }
 
+                    VerificationCodeDetailSection(
+                        entryName: draft.trimmedPath.isEmpty ? "new-entry" : draft.trimmedPath,
+                        hasOTPMarker: draft.otpauthLine != nil,
+                        isEditing: true,
+                        otpauthLine: $draft.otpauthLine,
+                        pendingOTPInput: $draft.pendingOTPURI
+                    )
+
+                    DetailGroupCard {
                         if !draft.fields.isEmpty {
-                            DetailGroupDivider()
                             EditableFieldsSection(fields: $draft.fields)
                         } else {
-                            DetailGroupDivider()
                             DetailGroupActionRow(title: "Add Field") {
                                 draft.fields.append(EditableField(key: "", value: ""))
                             }
                         }
-                    }
-
-                    if appState.registry.hasOTP {
-                        VerificationCodeDetailSection(
-                            entryName: draft.trimmedPath.isEmpty ? "new-entry" : draft.trimmedPath,
-                            hasOTPMarker: false,
-                            otpauthLine: nil,
-                            isEditing: true,
-                            pendingOTPURI: $draft.pendingOTPURI
-                        )
                     }
 
                     if let errorMessage {
@@ -122,15 +120,19 @@ struct EntryEditorSheet: View {
         errorMessage = nil
         defer { isSaving = false }
 
-        let content = draft.toSerializedContent()
         let pendingOTP = draft.pendingOTPURI.trimmingCharacters(in: .whitespacesAndNewlines)
 
         do {
-            try await appState.saveEntry(name, content: content, force: false)
-
-            if !pendingOTP.isEmpty {
-                try await appState.cli.otpAppend(name, uri: pendingOTP)
+            var otpLine = draft.otpauthLine
+            if otpLine == nil, !pendingOTP.isEmpty {
+                otpLine = try TOTPGenerator.makeOTPAuthURI(fromSetupInput: pendingOTP, account: name)
             }
+            let finalContent = PassEntrySerializer.serialize(
+                password: draft.password,
+                fields: draft.toPassFields(),
+                otpauthLine: otpLine
+            )
+            try await appState.saveEntry(name, content: finalContent, force: false)
 
             await appState.afterMutation(selectEntry: name)
             onSaved(name)

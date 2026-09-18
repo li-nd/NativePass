@@ -34,6 +34,7 @@ struct DetailGroupActionRow: View {
             Button(title, action: action)
                 .buttonStyle(.bordered)
                 .controlSize(.regular)
+                .tint(.primary)
                 .disabled(isDisabled)
         }
         .padding(.horizontal, 12)
@@ -148,17 +149,25 @@ struct DetailGroupRow: View {
         Group {
             if isEditing {
                 if isSecret && !isRevealed {
-                    SecureField(localizedLabel, text: $editValue)
+                    SecureField("", text: $editValue, prompt: Text("Required").foregroundStyle(.tertiary))
+                        .textFieldStyle(.plain)
+                        .focusEffectDisabled()
                 } else {
-                    TextField(localizedLabel, text: $editValue)
-                        .font(isSecret ? .body.monospaced() : .body)
+                    TextField(
+                        "",
+                        text: $editValue,
+                        prompt: Text(isSecret ? "Required" : "").foregroundStyle(.tertiary)
+                    )
+                    .textFieldStyle(.plain)
+                    .focusEffectDisabled()
+                    .font(isSecret ? .body.monospaced() : .body)
                 }
             } else if let url {
                 Button {
                     NSWorkspace.shared.open(url)
                 } label: {
                     Text(displayValue)
-                        .foregroundStyle(.link)
+                        .foregroundStyle(.primary)
                         .multilineTextAlignment(.trailing)
                         .lineLimit(3)
                 }

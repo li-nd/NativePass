@@ -40,6 +40,47 @@ enum TOTPGenerator {
         return String(format: "%0*u", info.digits, truncated % modulus)
     }
 
+    /// Formats `389795` as `389 795` (split near the middle).
+    static func formattedDisplayCode(_ code: String) -> String {
+        guard code.count >= 4 else { return code }
+        let split = code.count / 2
+        return "\(code.prefix(split)) \(code.suffix(code.count - split))"
+    }
+
+    static func remainingSeconds(at date: Date = Date(), period: Int) -> TimeInterval {
+        let epoch = date.timeIntervalSince1970
+        let p = TimeInterval(period)
+        return p - (epoch.truncatingRemainder(dividingBy: p))
+    }
+
+    /// Accepts a full `otpauth://` URI or a bare base32 secret (`JBSWY3DPEHPK3PXP`).
+    static func makeOTPAuthURI(fromSetupInput input: String, account: String) throws -> String {
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw PassError.parseFailed("OTP secret is empty")
+        }
+
+        if trimmed.lowercased().hasPrefix("otpauth://") {
+            _ = try parseOTPAuthURI(trimmed)
+            return trimmed
+        }
+
+        let secret = trimmed
+            .components(separatedBy: .whitespacesAndNewlines)
+            .joined()
+            .replacingOccurrences(of: "-", with: "")
+            .uppercased()
+        guard let decoded = base32Decode(secret), !decoded.isEmpty else {
+            throw PassError.parseFailed("Invalid OTP secret")
+        }
+
+        let label = account.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pathLabel = label.isEmpty ? "NativePass" : label
+        // Avoid URLComponents path quirks with nested pass paths — build a stable otpauth URI.
+        let encodedLabel = pathLabel.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? pathLabel
+        return "otpauth://totp/\(encodedLabel)?secret=\(secret)"
+    }
+
     static func parseOTPAuthURI(_ uri: String) throws -> OTPInfo {
         guard let components = URLComponents(string: uri.trimmingCharacters(in: .whitespacesAndNewlines)),
               components.scheme == "otpauth",
@@ -62,7 +103,7 @@ enum TOTPGenerator {
         return OTPInfo(secret: secret, digits: digits, period: period, algorithm: algorithm)
     }
 
-    private static func base32Decode(_ string: String) -> Data? {
+    static func base32Decode(_ string: String) -> Data? {
         let alphabet = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZ234567")
         var bits = 0
         var value = 0
