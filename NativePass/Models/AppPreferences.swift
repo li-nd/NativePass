@@ -86,4 +86,10 @@ enum AppPreferences {
         }
         set { UserDefaults.standard.set(newValue, forKey: "showQuickAccessFieldPreviews") }
     }
+
+    /// When true, the app uses `.accessory` activation policy (no Dock icon).
+    static var hideFromDock: Bool {
+        get { UserDefaults.standard.bool(forKey: "hideFromDock") }
+        set { UserDefaults.standard.set(newValue, forKey: "hideFromDock") }
+    }
 }

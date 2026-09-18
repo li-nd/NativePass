@@ -3,6 +3,7 @@ import SwiftUI
 
 @main
 struct NativePassApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var appState = AppState()
     @Environment(\.openWindow) private var openWindow
 

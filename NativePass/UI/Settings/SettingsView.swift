@@ -18,6 +18,9 @@ struct SettingsView: View {
     @State private var quickAccessPrimaryAction = AppPreferences.quickAccessPrimaryAction
     @State private var autoTypeDelay = AppPreferences.autoTypeDelayMilliseconds
     @State private var showFieldPreviews = AppPreferences.showQuickAccessFieldPreviews
+    @State private var hideFromDock = AppPreferences.hideFromDock
+    @State private var launchAtLogin = LaunchAtLoginService.isEnabled
+    @State private var launchAtLoginMessage: String?
     @State private var accessibilityTrusted = AutoTypeService.isTrusted()
 
     var body: some View {
@@ -108,6 +111,35 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section {
+                Toggle("Launch at Login", isOn: $launchAtLogin)
+                    .onChange(of: launchAtLogin) { _, enabled in
+                        applyLaunchAtLogin(enabled)
+                    }
+
+                Toggle("Hide from Dock", isOn: $hideFromDock)
+                    .onChange(of: hideFromDock) { _, hide in
+                        AppPreferences.hideFromDock = hide
+                        DockVisibility.apply(hide: hide)
+                    }
+
+                if let launchAtLoginMessage {
+                    Text(launchAtLoginMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                if LaunchAtLoginService.requiresApproval {
+                    Button("Open Login Items Settings") {
+                        LaunchAtLoginService.openLoginItemsSettings()
+                    }
+                }
+            } header: {
+                Text("Startup")
+            } footer: {
+                Text("When hidden from the Dock, use the menu bar icon or the Quick Access hotkey to open NativePass.")
+            }
+
             Section("Password Store") {
                 TextField("Store path", text: $storePath)
                     .onSubmit { saveStorePath() }
@@ -172,6 +204,12 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
+        .onAppear {
+            refreshLaunchAtLoginState()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            refreshLaunchAtLoginState()
+        }
     }
 
     private var quickAccessTab: some View {
@@ -411,7 +449,31 @@ struct SettingsView: View {
         quickAccessPrimaryAction = AppPreferences.quickAccessPrimaryAction
         autoTypeDelay = AppPreferences.autoTypeDelayMilliseconds
         showFieldPreviews = AppPreferences.showQuickAccessFieldPreviews
+        hideFromDock = AppPreferences.hideFromDock
+        refreshLaunchAtLoginState()
         accessibilityTrusted = AutoTypeService.isTrusted()
+    }
+
+    private func refreshLaunchAtLoginState() {
+        let pendingApproval = LaunchAtLoginService.requiresApproval
+        launchAtLogin = LaunchAtLoginService.isEnabled || pendingApproval
+        if pendingApproval {
+            launchAtLoginMessage = String(
+                localized: "macOS needs approval before NativePass can open at login."
+            )
+        } else {
+            launchAtLoginMessage = nil
+        }
+    }
+
+    private func applyLaunchAtLogin(_ enabled: Bool) {
+        do {
+            try LaunchAtLoginService.setEnabled(enabled)
+            refreshLaunchAtLoginState()
+        } catch {
+            refreshLaunchAtLoginState()
+            launchAtLoginMessage = error.localizedDescription
+        }
     }
 
     private func applyLanguage(_ language: AppLanguage) {
