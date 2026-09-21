@@ -154,6 +154,7 @@ final class AppState {
         }
 
         openMainWindowHandler?()
+        DockVisibility.prepareForShowingWindow()
         NSApp.activate(ignoringOtherApps: true)
 
         Task { @MainActor in
@@ -171,6 +172,7 @@ final class AppState {
 
     @MainActor
     private static func presentMainWindow(_ window: NSWindow) {
+        DockVisibility.prepareForShowingWindow()
         if window.isMiniaturized {
             window.deminiaturize(nil)
         }

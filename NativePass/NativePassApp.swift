@@ -42,6 +42,7 @@ struct NativePassApp: App {
             CommandGroup(replacing: .appSettings) {
                 Button("Settings…") {
                     guard !isBlocking else { return }
+                    DockVisibility.prepareForShowingWindow()
                     openWindow(id: AppWindowID.settings)
                 }
                 .keyboardShortcut(",", modifiers: .command)
@@ -138,6 +139,7 @@ struct NativePassApp: App {
                 appState.bindOpenMainWindow {
                     openWindow(id: AppWindowID.main)
                 }
+                DockVisibility.prepareForShowingWindow()
                 appState.revealMainWindow()
             }
 

@@ -1834,6 +1834,9 @@
         }
       }
     },
+    "Add Code" : {
+
+    },
     "Add Field" : {
       "localizations" : {
         "de" : {
@@ -4874,7 +4877,6 @@
       }
     },
     "Code" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5121,6 +5123,7 @@
       }
     },
     "Configured" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6106,6 +6109,9 @@
           }
         }
       }
+    },
+    "Copy Setup URL" : {
+
     },
     "Copyright © %lld Markus Lind" : {
       "extractionState" : "stale",
@@ -7506,6 +7512,15 @@
           }
         }
       }
+    },
+    "Delete Code" : {
+
+    },
+    "Delete Code…" : {
+
+    },
+    "Delete verification code?" : {
+
     },
     "Details: %@" : {
       "localizations" : {
@@ -9413,6 +9428,9 @@
         }
       }
     },
+    "Field" : {
+
+    },
     "Field Picker" : {
 
     },
@@ -11316,6 +11334,9 @@
     "Hide" : {
 
     },
+    "Hide from Dock" : {
+
+    },
     "Hide Password" : {
       "localizations" : {
         "de" : {
@@ -11975,6 +11996,7 @@
       }
     },
     "Install pass-otp to add or change verification codes." : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -12385,6 +12407,7 @@
       }
     },
     "Key" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -12793,6 +12816,9 @@
           }
         }
       }
+    },
+    "Launch at Login" : {
+
     },
     "List secret keys" : {
       "localizations" : {
@@ -13368,6 +13394,9 @@
           }
         }
       }
+    },
+    "macOS needs approval before NativePass can open at login." : {
+
     },
     "macOS requires Accessibility access before Auto-Type can work." : {
       "localizations" : {
@@ -15265,6 +15294,9 @@
         }
       }
     },
+    "None" : {
+
+    },
     "not found" : {
       "localizations" : {
         "de" : {
@@ -15922,6 +15954,9 @@
         }
       }
     },
+    "Open Login Items Settings" : {
+
+    },
     "Open NativePass" : {
       "localizations" : {
         "de" : {
@@ -16169,9 +16204,6 @@
       }
     },
     "OTP" : {
-
-    },
-    "otpauth://totp/..." : {
 
     },
     "Pass" : {
@@ -21034,6 +21066,9 @@
         }
       }
     },
+    "Secret key" : {
+
+    },
     "Security" : {
       "localizations" : {
         "de" : {
@@ -22188,6 +22223,9 @@
         }
       }
     },
+    "Startup" : {
+
+    },
     "Status" : {
       "localizations" : {
         "de" : {
@@ -23336,6 +23374,9 @@
           }
         }
       }
+    },
+    "The OTP secret will be removed from this entry." : {
+
     },
     "This password store is encrypted for a GPG key that is not available on this Mac. Import the matching private key or use the machine where the key already exists." : {
       "localizations" : {
@@ -25560,6 +25601,9 @@
           }
         }
       }
+    },
+    "When hidden from the Dock, use the menu bar icon or the Quick Access hotkey to open NativePass." : {
+
     },
     "Without this, NativePass cannot show a passphrase dialog." : {
       "localizations" : {
