@@ -1,6 +1,9 @@
 import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// Retained so block-based `NotificationCenter` observers stay registered.
+    private var windowObserverTokens: [NSObjectProtocol] = []
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         DockVisibility.applyFromPreferences()
         observeWindowFocusChanges()
@@ -19,15 +22,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func observeWindowFocusChanges() {
         let center = NotificationCenter.default
+        let names: [Notification.Name] = [
+            NSWindow.didBecomeKeyNotification,
+            NSWindow.didResignKeyNotification,
+            NSWindow.willCloseNotification,
+            NSWindow.didMiniaturizeNotification,
+            NSWindow.didDeminiaturizeNotification,
+        ]
         let handler: (Notification) -> Void = { _ in
             DispatchQueue.main.async {
                 DockVisibility.sync()
             }
         }
-        center.addObserver(forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main, using: handler)
-        center.addObserver(forName: NSWindow.didResignKeyNotification, object: nil, queue: .main, using: handler)
-        center.addObserver(forName: NSWindow.willCloseNotification, object: nil, queue: .main, using: handler)
-        center.addObserver(forName: NSWindow.didMiniaturizeNotification, object: nil, queue: .main, using: handler)
-        center.addObserver(forName: NSWindow.didDeminiaturizeNotification, object: nil, queue: .main, using: handler)
+        windowObserverTokens = names.map { name in
+            center.addObserver(forName: name, object: nil, queue: .main, using: handler)
+        }
     }
 }
