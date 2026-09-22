@@ -30,6 +30,8 @@ final class AppState {
     var selectedEntry: String?
     var searchText = ""
     var entrySortOrder: EntrySortOrder = .byName
+    /// True while the detail pane is editing an entry (menus / shortcuts).
+    var isEditingEntry = false
 
     private var storeWatcher: StoreFileWatcher?
 
@@ -220,6 +222,7 @@ final class AppState {
 
     @MainActor
     func purgeSensitiveStateOnLock() {
+        isEditingEntry = false
         metadataCache.clear()
         clipboard.revertSensitiveCopy()
         quickAccess.hide()
@@ -236,6 +239,29 @@ final class AppState {
     func loadEntry(_ name: String) async throws -> PassEntry {
         guard !appLock.isBlocking else { throw AppLockError.locked }
         return try await store.loadEntry(name)
+    }
+
+    @MainActor
+    func listEntryRevisions(_ name: String) async throws -> [EntryRevision] {
+        guard !appLock.isBlocking else { throw AppLockError.locked }
+        guard let git else {
+            throw PassError.parseFailed(String(localized: "Password store is not a Git repository."))
+        }
+        return try await git.revisions(forEntry: name)
+    }
+
+    @MainActor
+    func loadEntry(_ name: String, at revision: EntryRevision) async throws -> PassEntry {
+        guard !appLock.isBlocking else { throw AppLockError.locked }
+        return try await store.loadEntry(name, at: revision)
+    }
+
+    @MainActor
+    func restoreEntry(_ name: String, from revision: EntryRevision) async throws {
+        guard !appLock.isBlocking else { throw AppLockError.locked }
+        let historical = try await store.loadEntry(name, at: revision)
+        try await store.saveEntry(name, content: historical.rawContent, force: true)
+        await afterMutation(selectEntry: name)
     }
 
     @MainActor

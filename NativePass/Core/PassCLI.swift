@@ -132,6 +132,15 @@ actor PassCLI {
         return try await runOrThrow(args, timeout: timeout)
     }
 
+    /// Runs `pass git …` and returns raw stdout bytes (for encrypted blobs).
+    func gitData(_ arguments: [String], timeout: TimeInterval = 120) async throws -> Data {
+        let result = try await run(["git"] + arguments, timeout: timeout)
+        guard result.exitCode == 0 else {
+            throw PassError.commandFailed(exitCode: result.exitCode, stderr: result.stderr)
+        }
+        return result.stdoutData
+    }
+
     func otpAppend(_ name: String, uri: String, force: Bool = true) async throws {
         var args = ["otp", "append"]
         if force { args.append("-f") }
@@ -139,7 +148,54 @@ actor PassCLI {
         try await runOrThrow(args, stdin: Data(uri.utf8), timeout: 60)
     }
 
+    /// Decrypt GPG ciphertext using the same environment as `pass`.
+    func decryptGPG(_ ciphertext: Data, timeout: TimeInterval = 60) async throws -> String {
+        let gpgName = environment.gpgBinary
+        let gpgURL = Self.locateExecutable(
+            named: gpgName,
+            path: environment.processEnvironment()["PATH"] ?? "/usr/bin"
+        ) ?? URL(fileURLWithPath: "/usr/bin/\(gpgName)")
+
+        return try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let result = try Self.execute(
+                        binary: gpgURL,
+                        arguments: ["--decrypt", "--batch", "--quiet"],
+                        environment: self.environment.processEnvironment(),
+                        stdin: ciphertext,
+                        timeout: timeout,
+                        commandLabel: "gpg --decrypt"
+                    )
+                    guard result.exitCode == 0 else {
+                        throw PassError.commandFailed(exitCode: result.exitCode, stderr: result.stderr)
+                    }
+                    // Preserve internal newlines; strip a single trailing newline gpg may add.
+                    let raw = result.stdout
+                    let content = raw.hasSuffix("\n") ? String(raw.dropLast()) : raw
+                    continuation.resume(returning: content)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
     // MARK: - Private
+
+    private static func locateExecutable(named name: String, path: String) -> URL? {
+        if name.contains("/") {
+            let url = URL(fileURLWithPath: name)
+            return FileManager.default.isExecutableFile(atPath: url.path) ? url : nil
+        }
+        for directory in path.split(separator: ":") {
+            let url = URL(fileURLWithPath: String(directory)).appendingPathComponent(name)
+            if FileManager.default.isExecutableFile(atPath: url.path) {
+                return url
+            }
+        }
+        return nil
+    }
 
     private static func parseGeneratedPassword(from output: String) -> String? {
         // pass prints: "The generated password for entry is:\nPASSWORD"
@@ -155,7 +211,8 @@ actor PassCLI {
         arguments: [String],
         environment: [String: String],
         stdin: Data?,
-        timeout: TimeInterval
+        timeout: TimeInterval,
+        commandLabel: String? = nil
     ) throws -> PassCLIResult {
         let process = Process()
         process.executableURL = binary
@@ -180,7 +237,7 @@ actor PassCLI {
             try process.run()
         }
 
-        let commandLabel = (["pass"] + arguments).joined(separator: " ")
+        let label = commandLabel ?? ([binary.lastPathComponent] + arguments).joined(separator: " ")
         let exitSemaphore = DispatchSemaphore(value: 0)
 
         DispatchQueue.global(qos: .utility).async {
@@ -191,14 +248,14 @@ actor PassCLI {
         let waitResult = exitSemaphore.wait(timeout: .now() + timeout)
         if waitResult == .timedOut {
             terminateProcess(process)
-            throw PassError.timedOut(command: commandLabel)
+            throw PassError.timedOut(command: label)
         }
 
         let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
         let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
 
         return PassCLIResult(
-            stdout: String(decoding: stdoutData, as: UTF8.self),
+            stdoutData: stdoutData,
             stderr: String(decoding: stderrData, as: UTF8.self),
             exitCode: process.terminationStatus
         )

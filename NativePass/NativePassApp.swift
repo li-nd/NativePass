@@ -89,6 +89,19 @@ struct NativePassApp: App {
                 }
                 .keyboardShortcut("c", modifiers: [.command, .shift])
                 .disabled(isBlocking)
+
+                Divider()
+
+                Button("Show History") {
+                    NotificationCenter.default.post(name: Notification.Name.nativePassShowHistory, object: nil)
+                }
+                .keyboardShortcut("y", modifiers: .command)
+                .disabled(
+                    isBlocking
+                        || appState.selectedEntry == nil
+                        || !appState.environment.isGitRepository
+                        || appState.isEditingEntry
+                )
             }
 
             CommandMenu("Sync") {
