@@ -35,7 +35,7 @@
 | **Browse** | Nested folders, search, custom fields |
 | **Security** | GPG-backed store · App Lock (Touch ID) · clipboard auto-clear |
 | **OTP** | TOTP codes via [`pass-otp`](https://github.com/tadfisher/pass-otp) |
-| **Sync** | Git Pull / Push from the sidebar |
+| **Sync** | Git Pull / Push · entry History (view / restore) |
 | **Quick Access** | Global hotkey `⌥⌘P` — search, copy, or Auto-Type |
 
 ### Quick Access

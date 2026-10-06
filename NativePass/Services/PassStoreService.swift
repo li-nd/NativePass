@@ -25,6 +25,19 @@ struct PassStoreService: Sendable {
         return parseEntry(name: name, content: content)
     }
 
+    /// Load a historical snapshot from git (`commit` + path inside that tree).
+    func loadEntry(
+        _ name: String,
+        at revision: EntryRevision
+    ) async throws -> PassEntry {
+        let ciphertext = try await cli.gitData(
+            ["show", "\(revision.commitHash):\(revision.relativeGPGPath)"],
+            timeout: 60
+        )
+        let content = try await cli.decryptGPG(ciphertext)
+        return parseEntry(name: name, content: content)
+    }
+
     func saveEntry(_ name: String, content: String, force: Bool = true) async throws {
         try await cli.insertMultiline(name, content: content, force: force)
     }

@@ -25,7 +25,23 @@ enum PassError: Error, LocalizedError {
 }
 
 struct PassCLIResult: Sendable {
-    let stdout: String
+    let stdoutData: Data
     let stderr: String
     let exitCode: Int32
+
+    var stdout: String {
+        String(decoding: stdoutData, as: UTF8.self)
+    }
+
+    init(stdoutData: Data, stderr: String, exitCode: Int32) {
+        self.stdoutData = stdoutData
+        self.stderr = stderr
+        self.exitCode = exitCode
+    }
+
+    init(stdout: String, stderr: String, exitCode: Int32) {
+        self.stdoutData = Data(stdout.utf8)
+        self.stderr = stderr
+        self.exitCode = exitCode
+    }
 }

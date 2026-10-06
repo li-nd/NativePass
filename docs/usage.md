@@ -9,7 +9,7 @@ For fast copy or Auto-Type without the main window, use **⌥⌘P** — see [Qui
 - Sidebar folders mirror your store paths (including nested folders).
 - Select an entry to decrypt and view details.
 - Click a password or field to copy. Clipboard auto-clear is configurable in Settings.
-- Use **Raw** / **Form** (top-right of the detail pane) to switch between structured fields and the decrypted file as plain text. The same control works while editing. **Edit** / **Cancel** / **Save** keep the current Raw or Form mode. **⌘C** still copies only the password (first line); **⌘⇧C** copies the entire raw entry.
+- Use **Raw** / **Form** (top-right of the detail pane) to switch between structured fields and the decrypted file as plain text. The same control works while editing. When the store is a Git repository, **History** appears next to that control (view mode only). **Edit** / **Cancel** / **Save** keep the current Raw or Form mode. **⌘C** still copies only the password (first line); **⌘⇧C** copies the entire raw entry.
 - Find entries with [Search](search.md) (fuzzy match on paths).
 
 ### Keyboard
@@ -29,6 +29,7 @@ Focus regions (⇥ cycles **sidebar → list → search**; ⇧⇥ reverses). Whi
 | **⌘S** | Save while editing |
 | **⌘C** | Copy password (first line) |
 | **⌘⇧C** | Copy entire raw entry |
+| **⌘Y** | Show History |
 | **⌃⌘P** | Git Push |
 | **⌃⌘⇧P** | Git Pull |
 | **⌃⌘L** | Lock Now (when App Lock is enabled) |
@@ -51,6 +52,14 @@ Quick Access has its own keys (**esc**, **↑↓**, **⇥**, **↵**, **⌘↵**
 ![New entry](screenshots/3-new-entry.png)
 
 ![Edit entry](screenshots/6-edit.png)
+
+## History (Git)
+
+If the store is a Git repository, open an entry and use **History** (top-right of the detail pane, next to Raw/Form) or **Entry → Show History** (**⌘Y**):
+
+- Browse commits that touched this entry (follows renames).
+- Preview a past version (Form or Raw) and copy values.
+- **Restore** compares the current entry to the selected revision, then overwrites the file after confirmation. Restore creates a new Git commit (same as a normal save).
 
 ## Verification codes (TOTP)
 

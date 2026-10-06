@@ -19,6 +19,7 @@ struct EntryDetailView: View {
     @State private var isGenerating = false
     @State private var isPasswordRevealed = false
     @State private var showDeleteConfirm = false
+    @State private var showHistory = false
     @State private var actionError: String?
 
     private var canSaveCurrentEdit: Bool {
@@ -30,6 +31,10 @@ struct EntryDetailView: View {
 
     private var showsModeToggle: Bool {
         entry != nil && recoveryGuide == nil && !isLoading
+    }
+
+    private var canShowHistory: Bool {
+        showsModeToggle && !isEditing && appState.environment.isGitRepository
     }
 
     var body: some View {
@@ -45,7 +50,7 @@ struct EntryDetailView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .overlay(alignment: .topTrailing) {
                         if showsModeToggle {
-                            modeToggle
+                            detailChromeActions
                                 .padding(.top, 8)
                                 .padding(.trailing, 20)
                         }
@@ -61,7 +66,10 @@ struct EntryDetailView: View {
         .navigationTitle("")
         .toolbar(removing: .title)
         .onAppear { syncDetailChrome() }
-        .onChange(of: isEditing) { _, _ in syncDetailChrome() }
+        .onChange(of: isEditing) { _, value in
+            appState.isEditingEntry = value
+            syncDetailChrome()
+        }
         .onChange(of: showRaw) { _, _ in syncDetailChrome() }
         .onChange(of: isLoading) { _, _ in syncDetailChrome() }
         .onChange(of: isSaving) { _, _ in syncDetailChrome() }
@@ -69,11 +77,19 @@ struct EntryDetailView: View {
         .onChange(of: recoveryGuide?.title) { _, _ in syncDetailChrome() }
         .onChange(of: draft?.isValid) { _, _ in syncDetailChrome() }
         .onChange(of: rawDraft) { _, _ in syncDetailChrome() }
-        .onDisappear { detailController.reset() }
+        .onDisappear {
+            appState.isEditingEntry = false
+            detailController.reset()
+        }
         .task(id: entryName) {
             resetEditState()
+            appState.isEditingEntry = false
             showRaw = false
             await loadEntry()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .nativePassShowHistory)) { _ in
+            guard canShowHistory else { return }
+            showHistory = true
         }
         .confirmationDialog(
             String(localized: "Delete \"\(entryName)\"?"),
@@ -95,6 +111,17 @@ struct EntryDetailView: View {
         } message: {
             Text(actionError ?? "")
         }
+        .sheet(isPresented: $showHistory) {
+            if let entry {
+                EntryHistoryView(entryName: entryName, currentEntry: entry)
+                    .environment(appState)
+            }
+        }
+        .onChange(of: showHistory) { wasShowing, isShowing in
+            if wasShowing && !isShowing {
+                Task { await loadEntry() }
+            }
+        }
     }
 
     private func syncDetailChrome() {
@@ -107,6 +134,24 @@ struct EntryDetailView: View {
             onCancel: { cancelEdit() },
             onSave: { Task { await saveEdit() } }
         )
+    }
+
+    private var detailChromeActions: some View {
+        HStack(spacing: 12) {
+            if canShowHistory {
+                Button {
+                    showHistory = true
+                } label: {
+                    Text("History")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("View past versions of this entry")
+            }
+
+            modeToggle
+        }
     }
 
     private var modeToggle: some View {

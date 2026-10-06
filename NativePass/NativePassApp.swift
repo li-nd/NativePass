@@ -42,6 +42,7 @@ struct NativePassApp: App {
             CommandGroup(replacing: .appSettings) {
                 Button("Settings…") {
                     guard !isBlocking else { return }
+                    DockVisibility.prepareForShowingWindow()
                     openWindow(id: AppWindowID.settings)
                 }
                 .keyboardShortcut(",", modifiers: .command)
@@ -88,6 +89,19 @@ struct NativePassApp: App {
                 }
                 .keyboardShortcut("c", modifiers: [.command, .shift])
                 .disabled(isBlocking)
+
+                Divider()
+
+                Button("Show History") {
+                    NotificationCenter.default.post(name: Notification.Name.nativePassShowHistory, object: nil)
+                }
+                .keyboardShortcut("y", modifiers: .command)
+                .disabled(
+                    isBlocking
+                        || appState.selectedEntry == nil
+                        || !appState.environment.isGitRepository
+                        || appState.isEditingEntry
+                )
             }
 
             CommandMenu("Sync") {
@@ -138,6 +152,7 @@ struct NativePassApp: App {
                 appState.bindOpenMainWindow {
                     openWindow(id: AppWindowID.main)
                 }
+                DockVisibility.prepareForShowingWindow()
                 appState.revealMainWindow()
             }
 
