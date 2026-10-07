@@ -75,9 +75,17 @@ enum QuickAccessFieldResolver {
         }
 
         let extras: [QuickAccessFieldChoice] = entry.fields.enumerated().compactMap { index, field in
-            let key = field.key.trimmingCharacters(in: .whitespacesAndNewlines)
             let value = field.value.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !key.isEmpty, !value.isEmpty else { return nil }
+            guard !value.isEmpty else { return nil }
+            if field.isFreeform {
+                return QuickAccessFieldChoice(
+                    id: .custom("\(field.id)#\(index)"),
+                    label: field.displayKey,
+                    value: field.value
+                )
+            }
+            let key = field.key.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !key.isEmpty else { return nil }
             guard !consumedKeys.contains(key.lowercased()) else { return nil }
             return QuickAccessFieldChoice(
                 id: .custom("\(field.id)#\(index)"),

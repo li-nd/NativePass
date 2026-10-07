@@ -43,21 +43,38 @@ enum EntryDiffBuilder {
             )
         )
 
-        let currentKeys = current.fields.map(\.key)
-        let revisionKeys = revision.fields.map(\.key)
+        let currentKeyed = current.fields.filter { !$0.isFreeform }
+        let revisionKeyed = revision.fields.filter { !$0.isFreeform }
         var seen = Set<String>()
-        for key in currentKeys + revisionKeys {
+        for key in currentKeyed.map(\.key) + revisionKeyed.map(\.key) {
             let lowered = key.lowercased()
             guard seen.insert(lowered).inserted else { continue }
-            let currentValue = current.fields.first { $0.key.lowercased() == lowered }?.value
-            let revisionValue = revision.fields.first { $0.key.lowercased() == lowered }?.value
-            let label = current.fields.first { $0.key.lowercased() == lowered }?.key
-                ?? revision.fields.first { $0.key.lowercased() == lowered }?.key
+            let currentValue = currentKeyed.first { $0.key.lowercased() == lowered }?.value
+            let revisionValue = revisionKeyed.first { $0.key.lowercased() == lowered }?.value
+            let label = currentKeyed.first { $0.key.lowercased() == lowered }?.key
+                ?? revisionKeyed.first { $0.key.lowercased() == lowered }?.key
                 ?? key
             rows.append(
                 makeDiff(
                     id: "field-\(lowered)",
                     label: label,
+                    current: currentValue,
+                    revision: revisionValue,
+                    isSecret: false
+                )
+            )
+        }
+
+        let currentFreeform = current.fields.filter(\.isFreeform)
+        let revisionFreeform = revision.fields.filter(\.isFreeform)
+        let freeformCount = max(currentFreeform.count, revisionFreeform.count)
+        for index in 0..<freeformCount {
+            let currentValue = index < currentFreeform.count ? currentFreeform[index].value : nil
+            let revisionValue = index < revisionFreeform.count ? revisionFreeform[index].value : nil
+            rows.append(
+                makeDiff(
+                    id: "freeform-\(index)",
+                    label: String(localized: "Note"),
                     current: currentValue,
                     revision: revisionValue,
                     isSecret: false
