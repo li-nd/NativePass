@@ -628,6 +628,7 @@ struct QuickAccessView: View {
         selectedEntry = selection
     }
 
+    @discardableResult
     private func close(restorePreviousApplication: Bool = true) -> NSRunningApplication? {
         closeAfterActionTask?.cancel()
         appState.clipboard.dismissMessage()

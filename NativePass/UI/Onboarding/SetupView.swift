@@ -1,7 +1,11 @@
+import AppKit
 import SwiftUI
 
 struct SetupView: View {
     @Environment(AppState.self) private var appState
+
+    @State private var showCreateSheet = false
+    @State private var errorMessage: String?
 
     var body: some View {
         VStack(spacing: 24) {
@@ -21,9 +25,28 @@ struct SetupView: View {
             } else if !appState.environment.isStoreInitialized {
                 setupCard(
                     title: "Password store not initialized",
-                    message: "Run in Terminal: pass init your-gpg-id",
+                    message: "Create a new store or choose an existing password-store folder.",
                     icon: "folder.badge.questionmark"
                 )
+
+                VStack(spacing: 12) {
+                    Button("Create New Store…") {
+                        showCreateSheet = true
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button("Choose Existing Folder…") {
+                        chooseExisting()
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .multilineTextAlignment(.center)
             }
 
             if let report = appState.systemReport, !report.warnings.isEmpty {
@@ -44,11 +67,18 @@ struct SetupView: View {
             Button("Check Again") {
                 Task { await appState.bootstrap() }
             }
-            .buttonStyle(.borderedProminent)
             .disabled(appState.isBootstrapping)
         }
         .padding(40)
-        .frame(maxWidth: 480)
+        .frame(maxWidth: 520)
+        .sheet(isPresented: $showCreateSheet) {
+            NavigationStack {
+                StoreKeySetupSheet(mode: .create) {
+                    Task { await appState.bootstrap() }
+                }
+            }
+            .environment(appState)
+        }
     }
 
     private func setupCard(title: String, message: String, icon: String) -> some View {
@@ -60,5 +90,29 @@ struct SetupView: View {
                 .foregroundStyle(.secondary)
         }
         .padding()
+    }
+
+    private func chooseExisting() {
+        errorMessage = nil
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = StoreRegistry.defaultStoreURL
+        panel.message = String(localized: "Select a password store folder (contains .gpg-id).")
+        panel.prompt = String(localized: "Open")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        let gpgID = url.appendingPathComponent(".gpg-id")
+        if !FileManager.default.fileExists(atPath: gpgID.path) {
+            errorMessage = String(
+                localized: "That folder has no .gpg-id. Create a new store or choose an initialized folder."
+            )
+            return
+        }
+
+        Task {
+            await appState.addExistingStore(url)
+        }
     }
 }

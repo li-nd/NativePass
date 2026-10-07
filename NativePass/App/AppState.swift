@@ -20,6 +20,8 @@ final class AppState {
     private(set) var git: GitService?
     private(set) var systemReport: SystemReport?
     private(set) var entries: [String] = []
+    private(set) var encryptionMap: StoreEncryptionMap = .empty
+    private(set) var recipientLabels: [String: String] = [:]
     private(set) var isBootstrapping = false
     private(set) var bootstrapStep: BootstrapStep = .starting
     private(set) var isRunningFullDiagnostics = false
@@ -32,6 +34,16 @@ final class AppState {
     var entrySortOrder: EntrySortOrder = .byName
     /// True while the detail pane is editing an entry (menus / shortcuts).
     var isEditingEntry = false
+    /// Selected entry has at least two Git revisions (History is useful).
+    private(set) var selectedEntryHasHistory = false
+
+    /// When set, Settings opens on this tab and then clears the value.
+    var pendingSettingsTab: SettingsTab?
+
+    /// Known store paths from the registry (for sidebar / settings).
+    var storePaths: [URL] { StoreRegistry.paths }
+
+    var activeStoreURL: URL { environment.storeDirectory }
 
     private var storeWatcher: StoreFileWatcher?
 
@@ -44,7 +56,8 @@ final class AppState {
     }
 
     init() {
-        let environment = PassEnvironment.detect()
+        _ = StoreRegistry.ensureDefaultFallback()
+        let environment = PassEnvironment.detect(storeDirectory: StoreRegistry.activeURL)
         let cli = PassCLI(environment: environment)
         self.environment = environment
         self.cli = cli
@@ -75,6 +88,7 @@ final class AppState {
         bootstrapStep = .scanningStore
         if isReady {
             entries = store.listEntriesFast()
+            refreshEncryptionMap()
             startStoreWatcher()
             systemReport = inspector.buildQuickReport(
                 environment: environment,
@@ -83,6 +97,7 @@ final class AppState {
             )
         } else {
             entries = []
+            refreshEncryptionMap()
             stopStoreWatcher()
             systemReport = inspector.buildQuickReport(
                 environment: environment,
@@ -110,7 +125,168 @@ final class AppState {
     @MainActor
     func reloadEntries() {
         entries = store.listEntriesFast()
+        refreshEncryptionMap()
         Task { await refreshGitStatus() }
+    }
+
+    @MainActor
+    func refreshEncryptionMap() {
+        encryptionMap = StoreEncryptionMap.scan(storeDirectory: environment.storeDirectory)
+        let ids = Set(encryptionMap.rootIDs + encryptionMap.localPolicies.values.flatMap { $0 })
+        if !ids.isEmpty {
+            recipientLabels = GPGKeyListing.displayLabels(
+                for: Array(ids),
+                gpgBinary: environment.gpgBinary,
+                environment: environment.processEnvironment()
+            )
+        } else {
+            recipientLabels = [:]
+        }
+    }
+
+    func displayLabel(forGPGID id: String) -> String {
+        recipientLabels[id] ?? id
+    }
+
+    func displayLabels(forGPGIDs ids: [String]) -> String {
+        ids.map { displayLabel(forGPGID: $0) }.joined(separator: ", ")
+    }
+
+    @MainActor
+    func switchStore(to url: URL) async {
+        guard !appLock.isBlocking else { return }
+        let normalized = StoreRegistry.normalize(url)
+        StoreRegistry.setActive(normalized)
+        resetNavigationState()
+        applyStoreDirectory(normalized)
+        await bootstrap()
+    }
+
+    @MainActor
+    func switchToStore(atIndex index: Int) async {
+        let paths = storePaths
+        guard paths.indices.contains(index) else { return }
+        await switchStore(to: paths[index])
+    }
+
+    @MainActor
+    func switchToAdjacentStore(offset: Int) async {
+        let paths = storePaths
+        guard paths.count >= 2 else { return }
+        let current = activeStoreURL
+        guard let currentIndex = paths.firstIndex(where: { StoreRegistry.samePath($0, current) }) else {
+            await switchStore(to: paths[0])
+            return
+        }
+        let count = paths.count
+        let next = (currentIndex + offset % count + count) % count
+        await switchStore(to: paths[next])
+    }
+
+    @MainActor
+    func openSettings(tab: SettingsTab? = nil) {
+        pendingSettingsTab = tab
+    }
+
+    @MainActor
+    func addExistingStore(_ url: URL) async {
+        let normalized = StoreRegistry.add(url)
+        await switchStore(to: normalized)
+    }
+
+    @MainActor
+    func removeStoreFromList(_ url: URL, deleteFromDisk: Bool = false) async throws {
+        let normalized = StoreRegistry.normalize(url)
+        let wasActive = StoreRegistry.samePath(normalized, environment.storeDirectory)
+        let nextActive = StoreRegistry.remove(normalized)
+
+        if wasActive || !StoreRegistry.samePath(nextActive, environment.storeDirectory) {
+            await switchStore(to: nextActive)
+        }
+
+        guard deleteFromDisk else { return }
+
+        try Self.deleteStoreDirectoryIfSafe(normalized)
+    }
+
+    /// Removes a registered store directory from disk after safety checks.
+    private static func deleteStoreDirectoryIfSafe(_ url: URL) throws {
+        let normalized = StoreRegistry.normalize(url)
+        let home = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL
+        let path = normalized.path
+
+        guard path != "/", path != home.path else {
+            throw PassError.parseFailed(String(localized: "Refusing to delete a protected path."))
+        }
+        // Never delete the home directory or anything above the user's home via relative tricks.
+        guard path.hasPrefix(home.path + "/") else {
+            throw PassError.parseFailed(String(localized: "Refusing to delete a path outside your home folder."))
+        }
+
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            return
+        }
+
+        try FileManager.default.removeItem(at: normalized)
+    }
+
+    /// Creates a new store at `url` with the given keys, optionally runs `pass git init`, then activates it.
+    @MainActor
+    func createStore(
+        at url: URL,
+        gpgIDs: [String],
+        initializeGit: Bool
+    ) async throws {
+        guard !appLock.isBlocking else { throw AppLockError.locked }
+        let normalized = StoreRegistry.normalize(url)
+        try FileManager.default.createDirectory(at: normalized, withIntermediateDirectories: true)
+
+        let tempEnv = PassEnvironment.detect(storeDirectory: normalized)
+        let tempCLI = PassCLI(environment: tempEnv)
+        try await tempCLI.initStore(gpgIDs: gpgIDs)
+        if initializeGit {
+            try await tempCLI.gitInit()
+        }
+
+        StoreRegistry.add(normalized)
+        await switchStore(to: normalized)
+    }
+
+    @MainActor
+    func changeEncryptionKeys(gpgIDs: [String], folderPath: String?) async throws {
+        guard !appLock.isBlocking else { throw AppLockError.locked }
+        let path = folderPath.flatMap { $0.isEmpty ? nil : $0 }
+        try await cli.initStore(gpgIDs: gpgIDs, path: path)
+        redetectEnvironmentIfNeeded()
+        reloadEntries()
+        await refreshGitStatus()
+        await runFullDiagnostics()
+    }
+
+    @MainActor
+    private func resetNavigationState() {
+        selectedCategory = .all
+        selectedEntry = nil
+        searchText = ""
+        pendingSelectEntry = nil
+        isEditingEntry = false
+        selectedEntryHasHistory = false
+        metadataCache.clear()
+    }
+
+    @MainActor
+    private func applyStoreDirectory(_ url: URL) {
+        stopStoreWatcher()
+        let fresh = PassEnvironment.detect(storeDirectory: url)
+        environment = fresh
+        cli = PassCLI(environment: fresh)
+        store = PassStoreService(cli: cli, storeDirectory: fresh.storeDirectory)
+        updateGitService()
+        updateOTPService()
+        encryptionMap = .empty
+        recipientLabels = [:]
+        entries = []
     }
 
     @MainActor
@@ -124,6 +300,11 @@ final class AppState {
         if let selectEntry {
             pendingSelectEntry = selectEntry
         }
+    }
+
+    @MainActor
+    func setSelectedEntryHasHistory(_ value: Bool) {
+        selectedEntryHasHistory = value
     }
 
     @MainActor
@@ -223,6 +404,7 @@ final class AppState {
     @MainActor
     func purgeSensitiveStateOnLock() {
         isEditingEntry = false
+        selectedEntryHasHistory = false
         metadataCache.clear()
         clipboard.revertSensitiveCopy()
         quickAccess.hide()
@@ -286,6 +468,29 @@ final class AppState {
     func removeEntry(_ name: String) async throws {
         guard !appLock.isBlocking else { throw AppLockError.locked }
         try await store.removeEntry(name)
+    }
+
+    @MainActor
+    func removeFolder(_ path: String) async throws {
+        guard !appLock.isBlocking else { throw AppLockError.locked }
+        try await store.removeFolder(path)
+        if case .folder(let selected) = selectedCategory,
+           selected == path || selected.hasPrefix(path + "/") {
+            selectedCategory = .all
+        }
+        if let entry = selectedEntry,
+           entry == path || entry.hasPrefix(path + "/") {
+            selectedEntry = nil
+        }
+        await afterMutation()
+    }
+
+    func entries(underFolder path: String) -> [String] {
+        store.entries(underFolder: path)
+    }
+
+    func entryModificationDate(for name: String) -> Date? {
+        store.modificationDate(forEntry: name)
     }
 
     @MainActor
@@ -355,8 +560,12 @@ final class AppState {
     @MainActor
     @discardableResult
     func redetectEnvironmentIfNeeded() -> Bool {
-        let fresh = PassEnvironment.detect(storeDirectory: environment.storeDirectory)
-        guard !fresh.isEquivalent(to: environment) else { return false }
+        let active = StoreRegistry.ensureDefaultFallback()
+        let fresh = PassEnvironment.detect(storeDirectory: active)
+        guard !fresh.isEquivalent(to: environment) else {
+            // Still refresh encryption map when path unchanged but files may have changed.
+            return false
+        }
 
         let storeChanged = fresh.storeDirectory != environment.storeDirectory
         let wasReady = isReady

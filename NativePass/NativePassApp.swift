@@ -24,6 +24,31 @@ struct NativePassApp: App {
         }
     }
 
+    @ViewBuilder
+    private func storeSwitchButton(url: URL, index: Int) -> some View {
+        let title = StoreRegistry.shortDisplayName(for: url)
+        let label = StoreRegistry.samePath(url, appState.activeStoreURL) ? "✓ \(title)" : title
+        let button = Button {
+            guard !isBlocking else { return }
+            Task { await appState.switchStore(to: url) }
+        } label: {
+            Text(label)
+        }
+        .disabled(isBlocking)
+
+        if index < 9, let key = storeSlotKeyEquivalent(index) {
+            button.keyboardShortcut(key, modifiers: [.control, .command])
+        } else {
+            button
+        }
+    }
+
+    private func storeSlotKeyEquivalent(_ index: Int) -> KeyEquivalent? {
+        let keys: [KeyEquivalent] = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
+        guard keys.indices.contains(index) else { return nil }
+        return keys[index]
+    }
+
     var body: some Scene {
         Window(AppMetadata.applicationName, id: AppWindowID.main) {
             RootView()
@@ -42,6 +67,7 @@ struct NativePassApp: App {
             CommandGroup(replacing: .appSettings) {
                 Button("Settings…") {
                     guard !isBlocking else { return }
+                    appState.openSettings(tab: .general)
                     DockVisibility.prepareForShowingWindow()
                     openWindow(id: AppWindowID.settings)
                 }
@@ -92,7 +118,7 @@ struct NativePassApp: App {
 
                 Divider()
 
-                Button("Show History") {
+                Button("Show History…") {
                     NotificationCenter.default.post(name: Notification.Name.nativePassShowHistory, object: nil)
                 }
                 .keyboardShortcut("y", modifiers: .command)
@@ -101,7 +127,52 @@ struct NativePassApp: App {
                         || appState.selectedEntry == nil
                         || !appState.environment.isGitRepository
                         || appState.isEditingEntry
+                        || !appState.selectedEntryHasHistory
                 )
+            }
+
+            CommandMenu("Store") {
+                ForEach(Array(appState.storePaths.enumerated()), id: \.element.path) { index, url in
+                    storeSwitchButton(url: url, index: index)
+                }
+
+                if appState.storePaths.count >= 2 {
+                    Divider()
+
+                    Button("Previous Store") {
+                        Task { await appState.switchToAdjacentStore(offset: -1) }
+                    }
+                    .keyboardShortcut("[", modifiers: [.control, .command])
+                    .disabled(isBlocking)
+
+                    Button("Next Store") {
+                        Task { await appState.switchToAdjacentStore(offset: 1) }
+                    }
+                    .keyboardShortcut("]", modifiers: [.control, .command])
+                    .disabled(isBlocking)
+                }
+
+                Divider()
+
+                Button("Create Store…") {
+                    NotificationCenter.default.post(name: .nativePassCreateStore, object: nil)
+                }
+                .disabled(isBlocking)
+
+                Button("Add Existing…") {
+                    NotificationCenter.default.post(name: .nativePassAddExistingStore, object: nil)
+                }
+                .disabled(isBlocking)
+
+                Divider()
+
+                Button("Store Settings…") {
+                    guard !isBlocking else { return }
+                    appState.openSettings(tab: .store)
+                    DockVisibility.prepareForShowingWindow()
+                    openWindow(id: AppWindowID.settings)
+                }
+                .disabled(isBlocking)
             }
 
             CommandMenu("Sync") {

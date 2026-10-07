@@ -60,7 +60,7 @@ struct EntryHistoryView: View {
             }
         }
         .sheet(isPresented: $showRestoreConfirm) {
-            if let revision = selectedRevision, let loadedRevision {
+            if let revision = selectedRevision, loadedRevision != nil {
                 EntryRestoreConfirmView(
                     entryName: entryName,
                     revision: revision,

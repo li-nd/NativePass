@@ -255,7 +255,7 @@ final class QuickAccessController: @unchecked Sendable {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 self?.reregisterHotKey()
             }
         }

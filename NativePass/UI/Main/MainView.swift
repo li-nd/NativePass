@@ -1,6 +1,11 @@
 import AppKit
 import SwiftUI
 
+private struct FolderDeleteRequest: Identifiable, Hashable {
+    let path: String
+    var id: String { path }
+}
+
 struct MainView: View {
     @Environment(AppState.self) private var appState
     @State private var editorMode: EntryEditorMode?
@@ -9,6 +14,25 @@ struct MainView: View {
     /// Sole source of truth for region keyboard navigation (Tab / ⌘1–2 / ⌘F).
     @State private var activePane: MainPaneFocus = .list
     @FocusState private var isSearchFocused: Bool
+    @State private var storeSetupMode: StoreKeySetupMode?
+    @State private var infoTarget: StoreItemInfoTarget?
+    @State private var folderPendingDelete: FolderDeleteRequest?
+    @State private var folderDeleteError: String?
+
+    private var folderDeleteErrorPresented: Binding<Bool> {
+        Binding(
+            get: { folderDeleteError != nil },
+            set: { if !$0 { folderDeleteError = nil } }
+        )
+    }
+
+    private var folderTree: [PassFolderNode] {
+        PassFolderNode.buildFolderTree(
+            from: appState.entries,
+            ensuringFolders: appState.encryptionMap.foldersWithLocalPolicy,
+            distinctEncryptionFolders: []
+        )
+    }
 
     private var categoryEntries: [String] {
         PassFolderNode.entries(
@@ -53,7 +77,7 @@ struct MainView: View {
         case .all:
             return (
                 String(localized: "No Passwords"),
-                String(localized: "Create a new entry with ⌘N or run pass insert in Terminal.")
+                String(localized: "Create a new entry with ⌘N.")
             )
         }
     }
@@ -63,10 +87,21 @@ struct MainView: View {
 
         NavigationSplitView(columnVisibility: $columnVisibility) {
             SidebarView(
-                folders: PassFolderNode.buildFolderTree(from: appState.entries),
+                folders: folderTree,
                 showVerificationCodes: appState.registry.hasOTP,
                 selectedCategory: $appState.selectedCategory,
-                columnVisibility: $columnVisibility
+                columnVisibility: $columnVisibility,
+                onReencryptFolder: { path in
+                    guard !appState.appLock.isBlocking else { return }
+                    storeSetupMode = .changeFolder(path)
+                },
+                onGetInfoFolder: { path in
+                    infoTarget = .folder(path)
+                },
+                onDeleteFolder: { path in
+                    guard !appState.appLock.isBlocking else { return }
+                    folderPendingDelete = FolderDeleteRequest(path: path)
+                }
             )
             .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 280)
             .onChange(of: appState.selectedCategory) { _, _ in
@@ -86,6 +121,12 @@ struct MainView: View {
                 onNewEntry: {
                     guard !appState.appLock.isBlocking else { return }
                     editorMode = .create(suggestedPath: suggestedPath)
+                },
+                onGetInfoEntry: { name in
+                    infoTarget = .entry(name)
+                },
+                onDeleteEntry: { name in
+                    Task { await deleteEntry(named: name) }
                 }
             )
             .navigationSplitViewColumnWidth(min: 220, ideal: 280, max: 360)
@@ -132,6 +173,29 @@ struct MainView: View {
             }
             .environment(appState)
         }
+        .sheet(item: $storeSetupMode) { mode in
+            NavigationStack {
+                StoreKeySetupSheet(mode: mode)
+            }
+            .environment(appState)
+        }
+        .sheet(item: $infoTarget) { target in
+            StoreItemInfoSheet(target: target)
+                .environment(appState)
+        }
+        .sheet(item: $folderPendingDelete) { request in
+            FolderDeleteConfirmSheet(
+                folderPath: request.path,
+                entries: appState.entries(underFolder: request.path)
+            ) {
+                Task { await deleteFolder(named: request.path) }
+            }
+        }
+        .alert("Error", isPresented: folderDeleteErrorPresented) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(folderDeleteError ?? "")
+        }
         .onChange(of: appState.entries) { _, entries in
             pruneInvalidNavigation(using: entries)
         }
@@ -177,7 +241,7 @@ struct MainView: View {
             guard !appState.appLock.isBlocking else { return }
             Task {
                 await appState.gitSync.pull(using: appState.git)
-                await appState.reloadEntries()
+                appState.reloadEntries()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .nativePassGitPush)) { _ in
@@ -248,6 +312,29 @@ struct MainView: View {
     func showNewEntry() {
         guard !appState.appLock.isBlocking else { return }
         editorMode = .create(suggestedPath: suggestedPath)
+    }
+
+    @MainActor
+    private func deleteFolder(named path: String) async {
+        do {
+            try await appState.removeFolder(path)
+            folderPendingDelete = nil
+        } catch {
+            folderDeleteError = error.localizedDescription
+        }
+    }
+
+    @MainActor
+    private func deleteEntry(named name: String) async {
+        do {
+            try await appState.removeEntry(name)
+            if appState.selectedEntry == name {
+                appState.selectedEntry = nil
+            }
+            await appState.afterMutation()
+        } catch {
+            folderDeleteError = error.localizedDescription
+        }
     }
 
     func copySelectedPassword() {

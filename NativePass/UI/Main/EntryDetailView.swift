@@ -20,6 +20,7 @@ struct EntryDetailView: View {
     @State private var isPasswordRevealed = false
     @State private var showDeleteConfirm = false
     @State private var showHistory = false
+    @State private var historyRevisionCount = 0
     @State private var actionError: String?
 
     private var canSaveCurrentEdit: Bool {
@@ -34,7 +35,7 @@ struct EntryDetailView: View {
     }
 
     private var canShowHistory: Bool {
-        showsModeToggle && !isEditing && appState.environment.isGitRepository
+        showsModeToggle && !isEditing && appState.environment.isGitRepository && historyRevisionCount >= 2
     }
 
     var body: some View {
@@ -68,22 +69,33 @@ struct EntryDetailView: View {
         .onAppear { syncDetailChrome() }
         .onChange(of: isEditing) { _, value in
             appState.isEditingEntry = value
+            appState.setSelectedEntryHasHistory(canShowHistory)
             syncDetailChrome()
         }
         .onChange(of: showRaw) { _, _ in syncDetailChrome() }
-        .onChange(of: isLoading) { _, _ in syncDetailChrome() }
+        .onChange(of: isLoading) { _, _ in
+            appState.setSelectedEntryHasHistory(canShowHistory)
+            syncDetailChrome()
+        }
         .onChange(of: isSaving) { _, _ in syncDetailChrome() }
         .onChange(of: entry?.name) { _, _ in syncDetailChrome() }
         .onChange(of: recoveryGuide?.title) { _, _ in syncDetailChrome() }
         .onChange(of: draft?.isValid) { _, _ in syncDetailChrome() }
         .onChange(of: rawDraft) { _, _ in syncDetailChrome() }
+        .onChange(of: historyRevisionCount) { _, _ in
+            appState.setSelectedEntryHasHistory(canShowHistory)
+            syncDetailChrome()
+        }
         .onDisappear {
             appState.isEditingEntry = false
+            appState.setSelectedEntryHasHistory(false)
             detailController.reset()
         }
         .task(id: entryName) {
             resetEditState()
             appState.isEditingEntry = false
+            appState.setSelectedEntryHasHistory(false)
+            historyRevisionCount = 0
             showRaw = false
             await loadEntry()
         }
@@ -425,13 +437,35 @@ struct EntryDetailView: View {
                 entry = loaded
             }
             appState.metadataCache.update(from: loaded)
+            await refreshHistoryAvailability()
         } catch {
             recoveryGuide = DecryptFailureAnalyzer.analyze(
                 error: error,
                 entryName: entryName,
                 environment: appState.environment
             )
+            historyRevisionCount = 0
+            appState.setSelectedEntryHasHistory(false)
         }
+    }
+
+    private func refreshHistoryAvailability() async {
+        guard appState.environment.isGitRepository else {
+            historyRevisionCount = 0
+            appState.setSelectedEntryHasHistory(false)
+            return
+        }
+        do {
+            let revisions = try await appState.listEntryRevisions(entryName)
+            historyRevisionCount = revisions.count
+        } catch {
+            historyRevisionCount = 0
+        }
+        appState.setSelectedEntryHasHistory(
+            !isEditing
+                && appState.environment.isGitRepository
+                && historyRevisionCount >= 2
+        )
     }
 
     private func saveEdit() async {

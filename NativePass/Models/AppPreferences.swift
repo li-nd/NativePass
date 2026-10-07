@@ -15,10 +15,10 @@ enum QuickAccessPrimaryAction: String, CaseIterable, Identifiable {
 }
 
 enum AppPreferences {
-    static let defaultPasswordLength = 25
-    static let defaultClipboardTimeout: TimeInterval = 45
-    static let defaultRevealHideDelay: TimeInterval = 30
-    static let defaultAutoTypeDelayMilliseconds = 200
+    nonisolated static let defaultPasswordLength = 25
+    nonisolated static let defaultClipboardTimeout: TimeInterval = 45
+    nonisolated static let defaultRevealHideDelay: TimeInterval = 30
+    nonisolated static let defaultAutoTypeDelayMilliseconds = 200
 
     static var generatedPasswordLength: Int {
         get {

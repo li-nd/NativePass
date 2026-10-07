@@ -157,7 +157,7 @@ private struct GitSyncPopover: View {
                     guard !appState.appLock.isBlocking else { return }
                     Task {
                         await appState.gitSync.pull(using: appState.git)
-                        await appState.reloadEntries()
+                        appState.reloadEntries()
                     }
                 }
                 .disabled(appState.gitSync.isSyncing || appState.appLock.isBlocking)
