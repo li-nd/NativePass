@@ -32,8 +32,8 @@
 
 | | |
 |---|---|
-| **Browse** | Nested folders, search, custom fields |
-| **Security** | GPG-backed store · App Lock (Touch ID) · clipboard auto-clear |
+| **Browse** | Nested folders, search, custom fields · multiple stores |
+| **Security** | GPG-backed store · per-store / folder keys · App Lock (Touch ID) · clipboard auto-clear |
 | **OTP** | TOTP codes via [`pass-otp`](https://github.com/tadfisher/pass-otp) |
 | **Sync** | Git Pull / Push · entry History (view / restore) |
 | **Quick Access** | Global hotkey `⌥⌘P` — search, copy, or Auto-Type |
@@ -90,7 +90,9 @@ Full steps: **[Setup guide](https://np.developer.pm/setup/)**.
   <img src="docs/screenshots/8-settings-security.png" alt="Security settings" width="48%">
 </p>
 <p align="center">
-  <img src="docs/screenshots/11-settings-quickaccess.png" alt="Quick Access settings" width="56%">
+  <img src="docs/screenshots/13-settings-store.png" alt="Store settings" width="48%">
+  &nbsp;
+  <img src="docs/screenshots/11-settings-quickaccess.png" alt="Quick Access settings" width="48%">
 </p>
 
 ## Build

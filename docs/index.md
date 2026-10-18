@@ -11,6 +11,7 @@ Native macOS client for [pass](https://www.passwordstore.org/) — browse nested
 ## Features
 
 - Nested folders and [fuzzy path search](search.md)
+- Multiple password stores with per-store / per-folder GPG keys ([Setup](setup.md#multiple-stores))
 - Custom fields and password generator
 - TOTP verification codes (with `pass-otp`)
 - Git Pull / Push

@@ -36,7 +36,9 @@ pass git init
 # then add a remote and push as usual
 ```
 
-Or in NativePass on first launch: **Create New Store…** (pick a path and GPG keys, optionally **Initialize Git**) or **Choose Existing Folder…**.
+Or in NativePass on first launch: **Create New Store…** (pick a path and GPG keys, optionally **Initialize Git**) or **Choose Existing Folder…**. The same **Create Store…** dialog is available later from **Settings → Store** or the **Store** menu:
+
+![Create Password Store](screenshots/15-create-store.png)
 
 ## 4. Configure pinentry (passphrase popup)
 
@@ -81,14 +83,18 @@ NativePass can keep several store folders (only paths are saved). The active sto
 - **Settings → Store** — list with per-store **Use** / remove (optional delete files from disk), **Add Existing…**, **Create Store…**, **Change Encryption Keys…**
 - **Store** menu — switch active store (**⌃⌘[** / **⌃⌘]**, **⌃⌘1–9**), create or add existing, open Store Settings
 
+![Store settings](screenshots/13-settings-store.png)
+
+![Store menu](screenshots/14-menu-store.png)
+
 ### Encryption keys
 
 `pass init` selects GPG recipients for new/updated entries. NativePass wraps this for:
 
 - Creating a store
 - **Change Encryption Keys…** on the store root (re-encrypts the whole store)
-- **Change Keys…** on a folder that has (or will get) its own `.gpg-id` (`pass init -p`)
+- **Change Keys…** / **Re-encrypt…** on a folder that has (or will get) its own `.gpg-id` (`pass init -p`)
 
 Folders with a distinct `.gpg-id` show a people badge in the sidebar. Entry detail shows **Encrypted for:** based on the nearest `.gpg-id`.
 
-![General settings](screenshots/7-settings-general.png)
+![Change Encryption Keys](screenshots/16-change-encryption-keys.png)
