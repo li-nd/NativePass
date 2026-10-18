@@ -4,17 +4,40 @@ struct PassFolderNode: Identifiable, Hashable, Sendable {
     let id: String
     let name: String
     var subfolders: [PassFolderNode]
+    /// True when this folder has its own `.gpg-id` that differs from the store root.
+    var hasDistinctEncryption: Bool
 
     var isExpandable: Bool {
         !subfolders.isEmpty
     }
 
-    static func buildFolderTree(from allEntries: [String]) -> [PassFolderNode] {
+    static func buildFolderTree(
+        from allEntries: [String],
+        ensuringFolders: [String] = [],
+        distinctEncryptionFolders: Set<String> = []
+    ) -> [PassFolderNode] {
         var roots: [PassFolderNode] = []
         for entry in allEntries where entry.contains("/") {
             let parts = entry.split(separator: "/").map(String.init)
             guard parts.count >= 2 else { continue }
-            insertFolderParts(Array(parts.dropLast()), parentPath: "", into: &roots)
+            insertFolderParts(
+                Array(parts.dropLast()),
+                parentPath: "",
+                into: &roots,
+                distinctEncryptionFolders: distinctEncryptionFolders
+            )
+        }
+        for folder in ensuringFolders {
+            let parts = StoreEncryptionMap.normalizeRelativePath(folder)
+                .split(separator: "/")
+                .map(String.init)
+            guard !parts.isEmpty else { continue }
+            insertFolderParts(
+                parts,
+                parentPath: "",
+                into: &roots,
+                distinctEncryptionFolders: distinctEncryptionFolders
+            )
         }
         sortTree(&roots)
         return roots
@@ -49,25 +72,47 @@ struct PassFolderNode: Identifiable, Hashable, Sendable {
     private static func insertFolderParts(
         _ parts: [String],
         parentPath: String,
-        into nodes: inout [PassFolderNode]
+        into nodes: inout [PassFolderNode],
+        distinctEncryptionFolders: Set<String>
     ) {
         guard let head = parts.first else { return }
         let folderPath = parentPath.isEmpty ? head : "\(parentPath)/\(head)"
-        let index = findOrCreateSubfolder(named: head, id: folderPath, in: &nodes)
+        let index = findOrCreateSubfolder(
+            named: head,
+            id: folderPath,
+            hasDistinctEncryption: distinctEncryptionFolders.contains(folderPath),
+            in: &nodes
+        )
         if parts.count > 1 {
-            insertFolderParts(Array(parts.dropFirst()), parentPath: folderPath, into: &nodes[index].subfolders)
+            insertFolderParts(
+                Array(parts.dropFirst()),
+                parentPath: folderPath,
+                into: &nodes[index].subfolders,
+                distinctEncryptionFolders: distinctEncryptionFolders
+            )
         }
     }
 
     private static func findOrCreateSubfolder(
         named name: String,
         id: String,
+        hasDistinctEncryption: Bool,
         in nodes: inout [PassFolderNode]
     ) -> Int {
         if let index = nodes.firstIndex(where: { $0.name == name }) {
+            if hasDistinctEncryption {
+                nodes[index].hasDistinctEncryption = true
+            }
             return index
         }
-        nodes.append(PassFolderNode(id: id, name: name, subfolders: []))
+        nodes.append(
+            PassFolderNode(
+                id: id,
+                name: name,
+                subfolders: [],
+                hasDistinctEncryption: hasDistinctEncryption
+            )
+        )
         return nodes.count - 1
     }
 

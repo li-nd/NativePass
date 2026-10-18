@@ -60,6 +60,25 @@ struct PassStoreService: Sendable {
         try await cli.remove(name)
     }
 
+    func removeFolder(_ path: String) async throws {
+        try await cli.remove(path, recursive: true)
+    }
+
+    /// Entries at or under a folder path (including nested).
+    func entries(underFolder path: String) -> [String] {
+        let normalized = StoreEncryptionMap.normalizeRelativePath(path)
+        guard !normalized.isEmpty else { return listEntriesFast() }
+        let prefix = normalized + "/"
+        return listEntriesFast().filter { $0 == normalized || $0.hasPrefix(prefix) }
+    }
+
+    func modificationDate(forEntry name: String) -> Date? {
+        let fileURL = storeDirectory
+            .appendingPathComponent(name)
+            .appendingPathExtension("gpg")
+        return try? fileURL.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+    }
+
     func renameEntry(from oldName: String, to newName: String) async throws {
         try await cli.move(from: oldName, to: newName)
     }

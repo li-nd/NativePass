@@ -148,6 +148,26 @@ actor PassCLI {
         try await runOrThrow(args, stdin: Data(uri.utf8), timeout: 60)
     }
 
+    /// Initialize or re-encrypt the store (or a subfolder) for the given GPG recipient ids.
+    func initStore(gpgIDs: [String], path: String? = nil, timeout: TimeInterval = 600) async throws {
+        let cleaned = gpgIDs
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !cleaned.isEmpty else {
+            throw PassError.parseFailed(String(localized: "Select at least one GPG key."))
+        }
+        var args = ["init"]
+        if let path, !path.isEmpty {
+            args.append(contentsOf: ["-p", path])
+        }
+        args.append(contentsOf: cleaned)
+        try await runOrThrow(args, timeout: timeout)
+    }
+
+    func gitInit(timeout: TimeInterval = 60) async throws {
+        try await runOrThrow(["git", "init"], timeout: timeout)
+    }
+
     /// Decrypt GPG ciphertext using the same environment as `pass`.
     func decryptGPG(_ ciphertext: Data, timeout: TimeInterval = 60) async throws -> String {
         let gpgName = environment.gpgBinary

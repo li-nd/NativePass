@@ -14,4 +14,6 @@ extension Notification.Name {
     static let nativePassGitPull = Notification.Name("nativePassGitPull")
     static let nativePassGitPush = Notification.Name("nativePassGitPush")
     static let nativePassQuickAccessShortcutDidChange = Notification.Name("nativePassQuickAccessShortcutDidChange")
+    static let nativePassCreateStore = Notification.Name("nativePassCreateStore")
+    static let nativePassAddExistingStore = Notification.Name("nativePassAddExistingStore")
 }

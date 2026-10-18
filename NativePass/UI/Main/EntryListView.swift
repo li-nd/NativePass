@@ -36,8 +36,11 @@ struct EntryListView: View {
     @Binding var searchText: String
     @Binding var sortOrder: EntrySortOrder
     let onNewEntry: () -> Void
+    var onGetInfoEntry: ((String) -> Void)?
+    var onDeleteEntry: ((String) -> Void)?
 
     @Environment(AppState.self) private var appState
+    @State private var entryPendingDelete: String?
 
     private var filteredEntries: [String] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -82,6 +85,15 @@ struct EntryListView: View {
                         hasOTP: appState.metadataCache.metadata(for: entry)?.hasOTP == true
                     )
                     .tag(entry)
+                    .contextMenu {
+                        Button("Get Info…") {
+                            onGetInfoEntry?(entry)
+                        }
+                        Divider()
+                        Button("Delete…", role: .destructive) {
+                            entryPendingDelete = entry
+                        }
+                    }
                 }
                 .listStyle(.plain)
                 .contentMargins(.top, 0, for: .scrollContent)
@@ -97,6 +109,26 @@ struct EntryListView: View {
                     onNewEntry: onNewEntry
                 )
             }
+        }
+        .confirmationDialog(
+            entryPendingDelete.map { String(localized: "Delete \"\($0)\"?") } ?? String(localized: "Delete Entry?"),
+            isPresented: Binding(
+                get: { entryPendingDelete != nil },
+                set: { if !$0 { entryPendingDelete = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                if let entryPendingDelete {
+                    onDeleteEntry?(entryPendingDelete)
+                }
+                entryPendingDelete = nil
+            }
+            Button("Cancel", role: .cancel) {
+                entryPendingDelete = nil
+            }
+        } message: {
+            Text("This will permanently remove the entry from your password store.")
         }
     }
 }

@@ -35,10 +35,12 @@ final class StoreFileWatcher {
                     let flags = eventFlags[index]
                     if flags & FSEventStreamEventFlags(kFSEventStreamEventFlagItemIsFile) != 0 {
                         if let paths = unsafeBitCast(eventPaths, to: NSArray.self) as? [String],
-                           index < paths.count,
-                           paths[index].hasSuffix(".gpg") {
-                            DispatchQueue.main.async { watcher.onChange() }
-                            return
+                           index < paths.count {
+                            let path = paths[index]
+                            if path.hasSuffix(".gpg") || path.hasSuffix(".gpg-id") {
+                                DispatchQueue.main.async { watcher.onChange() }
+                                return
+                            }
                         }
                     }
                 }

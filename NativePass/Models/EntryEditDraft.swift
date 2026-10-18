@@ -4,11 +4,20 @@ struct EditableField: Identifiable, Equatable {
     let id: UUID
     var key: String
     var value: String
+    /// When true and key is still the Note label (or empty), serialize as pass freeform lines.
+    var isFreeform: Bool
 
-    init(id: UUID = UUID(), key: String, value: String) {
+    init(id: UUID = UUID(), key: String, value: String, isFreeform: Bool = false) {
         self.id = id
         self.key = key
         self.value = value
+        self.isFreeform = isFreeform
+    }
+
+    static var noteLabel: String { String(localized: "Note") }
+
+    var displaysAsFreeform: Bool {
+        isFreeform && (key.trimmingCharacters(in: .whitespaces).isEmpty || key == Self.noteLabel)
     }
 }
 
@@ -23,7 +32,13 @@ struct EntryEditDraft: Equatable {
         EntryEditDraft(
             entryPath: entry.name,
             password: entry.password,
-            fields: entry.fields.map { EditableField(key: $0.key, value: $0.value) },
+            fields: entry.fields.map {
+                EditableField(
+                    key: $0.displayKey,
+                    value: $0.value,
+                    isFreeform: $0.isFreeform
+                )
+            },
             otpauthLine: entry.otpauthLine,
             pendingOTPURI: ""
         )
@@ -52,9 +67,28 @@ struct EntryEditDraft: Equatable {
     }
 
     func toPassFields() -> [PassEntryField] {
-        fields
-            .filter { !$0.key.trimmingCharacters(in: .whitespaces).isEmpty }
-            .map { PassEntryField(id: $0.key, key: $0.key, value: $0.value) }
+        fields.compactMap { field in
+            if field.displaysAsFreeform {
+                let value = field.value
+                guard !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                    return nil
+                }
+                return PassEntryField(
+                    id: field.id.uuidString,
+                    key: "",
+                    value: value,
+                    isFreeform: true
+                )
+            }
+            let key = field.key.trimmingCharacters(in: .whitespaces)
+            guard !key.isEmpty else { return nil }
+            return PassEntryField(
+                id: field.id.uuidString,
+                key: key,
+                value: field.value,
+                isFreeform: false
+            )
+        }
     }
 
     func toSerializedContent() -> String {

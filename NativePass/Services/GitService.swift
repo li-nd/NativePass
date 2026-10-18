@@ -14,7 +14,7 @@ struct GitService: Sendable {
             timeout: Self.statusTimeout
         )
         let branch = branchOutput?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let changedLines = porcelain.split(separator: "\n").filter { !$0.isEmpty }
+        let changedFiles = GitPorcelainParser.parse(porcelain)
 
         let hasUpstream = await checkUpstream()
         var ahead = 0
@@ -26,8 +26,8 @@ struct GitService: Sendable {
 
         return GitStatus(
             branch: branch,
-            isClean: changedLines.isEmpty,
-            changedFilesCount: changedLines.count,
+            isClean: changedFiles.isEmpty,
+            changedFiles: changedFiles,
             aheadCount: ahead,
             behindCount: behind,
             hasUpstream: hasUpstream,

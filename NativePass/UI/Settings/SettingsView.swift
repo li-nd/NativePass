@@ -5,7 +5,6 @@ struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.dismissWindow) private var dismissWindow
 
-    @State private var storePath: String = ""
     @State private var passwordLength: Int = AppPreferences.generatedPasswordLength
     @State private var clipboardTimeout: Double = AppPreferences.clipboardClearTimeout
     @State private var revealHideDelay: Double = AppPreferences.revealHideDelay
@@ -22,6 +21,13 @@ struct SettingsView: View {
     @State private var launchAtLogin = LaunchAtLoginService.isEnabled
     @State private var launchAtLoginMessage: String?
     @State private var accessibilityTrusted = AutoTypeService.isTrusted()
+    @State private var selectedStorePath: String?
+    @State private var storeSetupMode: StoreKeySetupMode?
+    @State private var storeActionError: String?
+    @State private var storePendingRemoval: URL?
+    @State private var showRemoveStoreConfirm = false
+    @State private var alsoDeleteStoreFiles = false
+    @State private var selectedSettingsTab: SettingsTab = .general
 
     var body: some View {
         Group {
@@ -34,7 +40,11 @@ struct SettingsView: View {
         .frame(minWidth: 640, minHeight: 360)
         .onAppear {
             syncLocalState()
+            applyPendingSettingsTab()
             closeIfBlocked()
+        }
+        .onChange(of: appState.pendingSettingsTab) { _, _ in
+            applyPendingSettingsTab()
         }
         .onChange(of: appState.appLock.isBlocking) { _, isBlocking in
             if isBlocking {
@@ -70,27 +80,74 @@ struct SettingsView: View {
     }
 
     private var settingsContent: some View {
-        TabView {
+        TabView(selection: $selectedSettingsTab) {
             generalTab
                 .tabItem { Label("General", systemImage: "gearshape") }
+                .tag(SettingsTab.general)
+
+            storeTab
+                .tabItem { Label("Store", systemImage: "folder") }
+                .tag(SettingsTab.store)
 
             quickAccessTab
                 .tabItem { Label("Quick Access", systemImage: "bolt.horizontal.circle") }
+                .tag(SettingsTab.quickAccess)
 
             securityTab
                 .tabItem { Label("Security", systemImage: "lock") }
+                .tag(SettingsTab.security)
 
             if appState.environment.isGitRepository {
                 syncTab
                     .tabItem { Label("Sync", systemImage: "arrow.triangle.2.circlepath") }
+                    .tag(SettingsTab.sync)
             }
 
             NavigationStack {
                 SystemDiagnosticsView()
             }
             .tabItem { Label("Diagnostics", systemImage: "stethoscope") }
+            .tag(SettingsTab.diagnostics)
         }
         .tabViewStyle(.tabBarOnly)
+        .sheet(item: $storeSetupMode) { mode in
+            NavigationStack {
+                StoreKeySetupSheet(mode: mode) {
+                    syncLocalState()
+                }
+            }
+            .environment(appState)
+        }
+        .sheet(isPresented: $showRemoveStoreConfirm, onDismiss: {
+            storePendingRemoval = nil
+            alsoDeleteStoreFiles = false
+        }) {
+            if let storePendingRemoval {
+                RemoveStoreConfirmSheet(
+                    storeURL: storePendingRemoval,
+                    alsoDeleteFiles: $alsoDeleteStoreFiles,
+                    onCancel: {
+                        showRemoveStoreConfirm = false
+                    },
+                    onConfirm: { deleteFromDisk in
+                        Task {
+                            do {
+                                try await appState.removeStoreFromList(
+                                    storePendingRemoval,
+                                    deleteFromDisk: deleteFromDisk
+                                )
+                                storeActionError = nil
+                                showRemoveStoreConfirm = false
+                                syncLocalState()
+                            } catch {
+                                storeActionError = error.localizedDescription
+                                showRemoveStoreConfirm = false
+                            }
+                        }
+                    }
+                )
+            }
+        }
     }
 
     private var generalTab: some View {
@@ -130,7 +187,7 @@ struct SettingsView: View {
                 }
 
                 if LaunchAtLoginService.requiresApproval {
-                    Button("Open Login Items Settings") {
+                    Button("Open Login Items Settings…") {
                         LaunchAtLoginService.openLoginItemsSettings()
                     }
                 }
@@ -138,17 +195,6 @@ struct SettingsView: View {
                 Text("Startup")
             } footer: {
                 Text("When hidden from the Dock, use the menu bar icon or the Quick Access hotkey to open NativePass.")
-            }
-
-            Section("Password Store") {
-                TextField("Store path", text: $storePath)
-                    .onSubmit { saveStorePath() }
-                Text("Default: ~/.password-store")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Button("Apply Store Path") {
-                    saveStorePath()
-                }
             }
 
             Section("Passwords") {
@@ -210,6 +256,171 @@ struct SettingsView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshLaunchAtLoginState()
         }
+    }
+
+    private var storeTab: some View {
+        Form {
+            Section {
+                ForEach(appState.storePaths, id: \.path) { url in
+                    storeRow(for: url)
+                }
+
+                HStack(spacing: 8) {
+                    Button {
+                        addExistingStore()
+                    } label: {
+                        Label("Add Existing…", systemImage: "folder.badge.plus")
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button {
+                        storeSetupMode = .create
+                    } label: {
+                        Label("Create Store…", systemImage: "plus")
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Spacer(minLength: 0)
+                }
+                .padding(.top, 4)
+                .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+            } header: {
+                Text("Stores")
+            } footer: {
+                Text("The active store is used for browsing and editing. You can also switch from the sidebar.")
+            }
+
+            Section {
+                if !appState.environment.isStoreInitialized {
+                    Label("Active store is not initialized.", systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                } else if appState.encryptionMap.rootIDs.isEmpty {
+                    Text("No GPG recipients in .gpg-id.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(appState.encryptionMap.rootIDs, id: \.self) { id in
+                        HStack(alignment: .firstTextBaseline, spacing: 12) {
+                            Image(systemName: "key.fill")
+                                .foregroundStyle(.secondary)
+                                .frame(width: 16)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(appState.displayLabel(forGPGID: id))
+                                    .font(.body)
+                                Text(id)
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(.secondary)
+                                    .textSelection(.enabled)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                    }
+                }
+
+                Button {
+                    storeSetupMode = .changeRoot
+                } label: {
+                    Label("Change Encryption Keys…", systemImage: "lock.rotation")
+                }
+                .disabled(!appState.environment.isStoreInitialized)
+            } header: {
+                Text("Encryption")
+            } footer: {
+                Text("Recipients for \(StoreRegistry.displayPath(for: appState.activeStoreURL)). Changing keys re-encrypts the whole store.")
+            }
+
+            if let storeActionError {
+                Section {
+                    Text(storeActionError)
+                        .font(.callout)
+                        .foregroundStyle(.red)
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
+        .onAppear {
+            selectedStorePath = appState.activeStoreURL.path
+        }
+    }
+
+    @ViewBuilder
+    private func storeRow(for url: URL) -> some View {
+        let isActive = StoreRegistry.samePath(url, appState.activeStoreURL)
+        let isSelected = selectedStorePath == url.path
+        let canRemove = appState.storePaths.count > 1
+
+        HStack(alignment: .center, spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(isActive ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.12))
+                    .frame(width: 32, height: 32)
+                Image(systemName: isActive ? "folder.fill" : "folder")
+                    .foregroundStyle(isActive ? Color.accentColor : Color.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(StoreRegistry.shortDisplayName(for: url))
+                        .font(.body.weight(isActive ? .semibold : .regular))
+                    if isActive {
+                        Text("Active")
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.accentColor.opacity(0.2))
+                            .foregroundStyle(Color.accentColor)
+                            .clipShape(Capsule())
+                    }
+                }
+                Text(StoreRegistry.displayPath(for: url))
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(url.path)
+            }
+
+            Spacer(minLength: 8)
+
+            if !isActive {
+                Button("Use") {
+                    selectedStorePath = url.path
+                    Task { await appState.switchStore(to: url) }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+
+            Button {
+                selectedStorePath = url.path
+                alsoDeleteStoreFiles = false
+                storePendingRemoval = url
+                showRemoveStoreConfirm = true
+            } label: {
+                Image(systemName: "trash")
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(canRemove ? .red : .secondary)
+            .disabled(!canRemove)
+            .help(
+                canRemove
+                    ? String(localized: "Remove \(StoreRegistry.displayPath(for: url)) from the list")
+                    : String(localized: "Keep at least one store in the list")
+            )
+            .accessibilityLabel(
+                String(localized: "Remove \(StoreRegistry.shortDisplayName(for: url)) from list")
+            )
+        }
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            selectedStorePath = url.path
+        }
+        .listRowBackground(
+            isSelected ? Color.accentColor.opacity(0.08) : Color.clear
+        )
     }
 
     private var quickAccessTab: some View {
@@ -423,6 +634,9 @@ struct SettingsView: View {
                         LabeledContent("Ahead", value: "\(gitStatus.aheadCount)")
                         LabeledContent("Behind", value: "\(gitStatus.behindCount)")
                     }
+                    if !gitStatus.changedFiles.isEmpty {
+                        GitChangedFilesList(files: gitStatus.changedFiles)
+                    }
                 } else {
                     Text("Git status unavailable.")
                         .foregroundStyle(.secondary)
@@ -439,7 +653,7 @@ struct SettingsView: View {
     }
 
     private func syncLocalState() {
-        storePath = appState.environment.storeDirectory.path
+        selectedStorePath = appState.activeStoreURL.path
         passwordLength = AppPreferences.generatedPasswordLength
         clipboardTimeout = AppPreferences.clipboardClearTimeout
         revealHideDelay = AppPreferences.revealHideDelay
@@ -452,6 +666,16 @@ struct SettingsView: View {
         hideFromDock = AppPreferences.hideFromDock
         refreshLaunchAtLoginState()
         accessibilityTrusted = AutoTypeService.isTrusted()
+    }
+
+    private func applyPendingSettingsTab() {
+        guard let tab = appState.pendingSettingsTab else { return }
+        if tab == .sync, !appState.environment.isGitRepository {
+            selectedSettingsTab = .general
+        } else {
+            selectedSettingsTab = tab
+        }
+        appState.pendingSettingsTab = nil
     }
 
     private func refreshLaunchAtLoginState() {
@@ -515,11 +739,30 @@ struct SettingsView: View {
         }
     }
 
-    private func saveStorePath() {
+    private func addExistingStore() {
         guard !appState.appLock.isBlocking else { return }
-        let url = URL(fileURLWithPath: storePath, isDirectory: true)
-        PassEnvironment.saveStoreDirectory(url)
-        Task { await appState.bootstrap() }
+        storeActionError = nil
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = StoreRegistry.defaultStoreURL
+        panel.message = String(localized: "Select a password store folder.")
+        panel.prompt = String(localized: "Add")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        let gpgID = url.appendingPathComponent(".gpg-id")
+        if !FileManager.default.fileExists(atPath: gpgID.path) {
+            storeActionError = String(
+                localized: "That folder has no .gpg-id. Use Create Store… to initialize it first."
+            )
+            return
+        }
+
+        Task {
+            await appState.addExistingStore(url)
+            syncLocalState()
+        }
     }
 
     private func loadImportHelp() async {
@@ -528,5 +771,59 @@ struct SettingsView: View {
         } catch {
             importHelp = error.localizedDescription
         }
+    }
+}
+
+private struct RemoveStoreConfirmSheet: View {
+    let storeURL: URL
+    @Binding var alsoDeleteFiles: Bool
+    var onCancel: () -> Void
+    var onConfirm: (Bool) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Remove \(StoreRegistry.shortDisplayName(for: storeURL))?")
+                .font(.headline)
+
+            Text(StoreRegistry.displayPath(for: storeURL))
+                .font(.callout.monospaced())
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+
+            Text("This removes the store from NativePass. The folder stays on disk unless you choose otherwise.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            Toggle(isOn: $alsoDeleteFiles) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Also delete files from disk")
+                    Text("Permanently deletes this folder and all passwords inside it.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.checkbox)
+
+            if alsoDeleteFiles {
+                Label(
+                    "This cannot be undone.",
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .font(.caption)
+                .foregroundStyle(.orange)
+            }
+
+            HStack {
+                Button("Cancel", role: .cancel, action: onCancel)
+                    .keyboardShortcut(.cancelAction)
+                Spacer()
+                Button(alsoDeleteFiles ? "Remove and Delete Files" : "Remove from List", role: .destructive) {
+                    onConfirm(alsoDeleteFiles)
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(20)
+        .frame(width: 420)
     }
 }

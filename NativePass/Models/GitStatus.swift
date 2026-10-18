@@ -11,11 +11,13 @@ enum GitSyncBadge: Sendable {
 struct GitStatus: Sendable {
     let branch: String?
     let isClean: Bool
-    let changedFilesCount: Int
+    let changedFiles: [GitChangedFile]
     let aheadCount: Int
     let behindCount: Int
     let hasUpstream: Bool
     let porcelainOutput: String
+
+    var changedFilesCount: Int { changedFiles.count }
 
     var syncBadge: GitSyncBadge {
         if !hasUpstream {

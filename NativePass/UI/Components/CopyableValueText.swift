@@ -3,7 +3,9 @@ import SwiftUI
 struct CopyableValueText: View {
     let value: String
     var isMonospaced: Bool = false
-    var lineLimit: Int = 3
+    /// `nil` = no limit (full multiline blocks).
+    var lineLimit: Int? = 3
+    var textAlignment: TextAlignment = .trailing
     var feedbackScope: String?
     let onCopy: () -> Void
 
@@ -13,16 +15,18 @@ struct CopyableValueText: View {
 
     var body: some View {
         Button(action: copy) {
-            ZStack(alignment: .trailing) {
+            ZStack(alignment: textAlignment == .trailing ? .trailing : .topLeading) {
                 Text(value)
                     .font(isMonospaced ? .body.monospaced() : .body)
                     .foregroundStyle(.primary)
-                    .multilineTextAlignment(.trailing)
+                    .multilineTextAlignment(textAlignment)
                     .lineLimit(lineLimit)
+                    .frame(maxWidth: .infinity, alignment: textAlignment == .trailing ? .trailing : .leading)
                     .opacity(showCopied ? 0 : 1)
 
                 if showCopied {
                     CopiedFeedbackBadge(font: .caption)
+                        .frame(maxWidth: .infinity, alignment: textAlignment == .trailing ? .trailing : .leading)
                 }
             }
             .padding(.horizontal, 6)

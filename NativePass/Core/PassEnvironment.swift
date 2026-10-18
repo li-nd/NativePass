@@ -27,7 +27,9 @@ struct PassEnvironment: Sendable {
     ]
 
     static func detect(storeDirectory: URL? = nil) -> PassEnvironment {
-        let store = storeDirectory ?? loadStoreDirectoryFromDefaults() ?? defaultStorePath
+        let store = StoreRegistry.normalize(
+            storeDirectory ?? StoreRegistry.ensureDefaultFallback()
+        )
         let passBinary = locatePassBinary()
         let gpgBinary = locateBinary(named: "gpg", candidates: [
             "/opt/homebrew/bin/gpg",
@@ -47,7 +49,7 @@ struct PassEnvironment: Sendable {
         let gpgHome = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".gnupg", isDirectory: true)
         let pinentry = readPinentryProgram(gpgHome: gpgHome)
-        let gpgIDs = readGPGIDs(store: store)
+        let gpgIDs = GPGIDFileReader.readIDs(from: store.appendingPathComponent(".gpg-id"))
         let isInitialized = FileManager.default.fileExists(
             atPath: store.appendingPathComponent(".gpg-id").path
         )
@@ -108,15 +110,10 @@ struct PassEnvironment: Sendable {
     }
 
     static func saveStoreDirectory(_ url: URL) {
-        UserDefaults.standard.set(url.path, forKey: "storeDirectory")
+        StoreRegistry.setActive(url)
     }
 
     // MARK: - Private
-
-    private static func loadStoreDirectoryFromDefaults() -> URL? {
-        guard let path = UserDefaults.standard.string(forKey: "storeDirectory") else { return nil }
-        return URL(fileURLWithPath: path, isDirectory: true)
-    }
 
     private static func locatePassBinary() -> URL? {
         var candidates: [URL] = []
@@ -259,16 +256,6 @@ struct PassEnvironment: Sendable {
     private static func parsePassVersion(from passBinary: URL) -> String? {
         guard let contents = try? String(contentsOf: passBinary, encoding: .utf8) else { return nil }
         return PassVersionParser.parsePassVersion(from: contents)
-    }
-
-    private static func readGPGIDs(store: URL) -> [String] {
-        let gpgIDFile = store.appendingPathComponent(".gpg-id")
-        guard let contents = try? String(contentsOf: gpgIDFile, encoding: .utf8) else { return [] }
-        return contents
-            .split(separator: "\n")
-            .map { $0.split(separator: "#", maxSplits: 1).first.map(String.init) ?? "" }
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
     }
 
     private static func readGPGVersion(binary: String) -> String? {
