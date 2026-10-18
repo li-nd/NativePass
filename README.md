@@ -61,10 +61,11 @@ Tap: [li-nd/homebrew-apps](https://github.com/li-nd/homebrew-apps). Or download 
 
 ```bash
 brew install pass gnupg gnu-getopt pinentry-mac pass-otp
-pass init YOUR_GPG_KEY_ID
 ```
 
-Configure `pinentry-mac` so GPG can show a passphrase dialog (Touch ID friendly):
+Open NativePass → **Create New Store…** (or **Choose Existing Folder…**). Terminal alternative: `pass init YOUR_GPG_KEY_ID`.
+
+Configure `pinentry-mac` so GPG can show a passphrase dialog (Touch ID friendly) — also shown in **Settings → Security**:
 
 ```bash
 # ~/.gnupg/gpg-agent.conf  (Apple Silicon)
@@ -109,7 +110,8 @@ Published site: **[np.developer.pm](https://np.developer.pm/)**
 | Page | Topic |
 |------|--------|
 | [Requirements](https://np.developer.pm/requirements/) | Install app + Homebrew packages |
-| [Setup](https://np.developer.pm/setup/) | Store init & pinentry |
+| [Setup](https://np.developer.pm/setup/) | First launch, store, pinentry |
+| [Password stores](https://np.developer.pm/stores/) | Create, switch, encryption keys |
 | [Plugins](https://np.developer.pm/plugins/) | pass-otp and more |
 | [Usage](https://np.developer.pm/usage/) | Everyday workflow |
 | [Troubleshooting](https://np.developer.pm/troubleshooting/) | Diagnostics |

@@ -11,7 +11,7 @@ Native macOS client for [pass](https://www.passwordstore.org/) — browse nested
 ## Features
 
 - Nested folders and [fuzzy path search](search.md)
-- Multiple password stores with per-store / per-folder GPG keys ([Setup](setup.md#multiple-stores))
+- Multiple [password stores](stores.md) with per-store / per-folder GPG keys
 - Custom fields and password generator
 - TOTP verification codes (with `pass-otp`)
 - Git Pull / Push
@@ -31,17 +31,18 @@ Native macOS client for [pass](https://www.passwordstore.org/) — browse nested
    brew install --cask nativepass
    ```
    Or download from [GitHub Releases](https://github.com/li-nd/NativePass/releases). Tap: [homebrew-apps](https://github.com/li-nd/homebrew-apps).
-2. Install [requirements](requirements.md)
-3. Follow [setup](setup.md) (store + pinentry)
-4. Optional: install [plugins](plugins.md)
-5. Open NativePass and check **Settings → Diagnostics**
+2. Install [requirements](requirements.md) (`pass`, GnuPG, `pinentry-mac`, …).
+3. Follow [setup](setup.md): open NativePass → **Create New Store…** (or choose existing), then pinentry under **Settings → Security**.
+4. Optional: install [plugins](plugins.md).
+5. Check **Settings → Diagnostics**.
 
 ## Docs
 
 | Page | Topic |
 |------|--------|
 | [Requirements](requirements.md) | Homebrew packages |
-| [Setup](setup.md) | `pass init`, pinentry, Touch ID |
+| [Setup](setup.md) | First launch, store, pinentry |
+| [Password stores](stores.md) | Create, switch, encryption keys |
 | [Plugins](plugins.md) | `pass-otp` and more |
 | [Usage](usage.md) | Browse, create, edit, sync |
 | [Search](search.md) | Fuzzy path search |
