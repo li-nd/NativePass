@@ -34,6 +34,7 @@ nav:
   - Home: index.md
   - Requirements: requirements.md
   - Setup: setup.md
+  - Password stores: stores.md
   - Plugins: plugins.md
   - Usage:
       - Overview: usage.md
