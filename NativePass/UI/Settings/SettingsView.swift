@@ -718,7 +718,9 @@ struct SettingsView: View {
         guard newValue != appState.appLock.isEnabled else { return }
 
         if newValue {
-            appState.appLock.enableLock()
+            if !appState.appLock.enableLock() {
+                securityChangeError = String(localized: "App Lock needs a login password or Touch ID. Set one up in System Settings first.")
+            }
             return
         }
 
