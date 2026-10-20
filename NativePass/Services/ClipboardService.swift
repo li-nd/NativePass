@@ -12,12 +12,20 @@ final class ClipboardService {
         AppPreferences.clipboardClearTimeout
     }
 
-    func copy(_ text: String, clearAfter: TimeInterval? = nil, showToast: Bool = true) {
+    /// nspasteboard.org marker: clipboard managers should not record or display this item.
+    private static let concealedType = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
+
+    /// Copies `text`. Sensitive copies stay on this Mac (no Universal Clipboard) and are
+    /// marked concealed so clipboard history tools skip them.
+    func copy(_ text: String, clearAfter: TimeInterval? = nil, showToast: Bool = true, isSensitive: Bool = true) {
         let timeout = clearAfter ?? clearTimeout
         let pasteboard = NSPasteboard.general
         lastCopiedText = text
-        pasteboard.clearContents()
+        _ = pasteboard.prepareForNewContents(with: isSensitive ? .currentHostOnly : [])
         pasteboard.setString(text, forType: .string)
+        if isSensitive {
+            pasteboard.setData(Data(), forType: Self.concealedType)
+        }
 
         messageTask?.cancel()
         clearTask?.cancel()
