@@ -137,7 +137,7 @@ struct EntryFieldsViewSection: View {
     private func fieldRow(for field: PassEntryField) -> some View {
         let label = field.displayKey
         if usesBlockLayout(field) {
-            freeformViewer(label: label, value: field.value, onCopy: { onCopy(field.value) })
+            FreeformValueViewer(label: label, value: field.value, onCopy: onCopy)
         } else if !field.isFreeform,
                   PassWebURL.isWebFieldKey(field.key),
                   let url = PassWebURL.browserURL(from: field.value) {
@@ -154,23 +154,57 @@ struct EntryFieldsViewSection: View {
     private func usesBlockLayout(_ field: PassEntryField) -> Bool {
         field.isFreeform || field.value.contains("\n") || field.value.count > 120
     }
+}
 
-    private func freeformViewer(label: String, value: String, onCopy: @escaping () -> Void) -> some View {
+/// Read-only multiline value. The Copy button copies the highlighted text, or the whole
+/// value when nothing is highlighted; every copy path uses the sensitive clipboard.
+private struct FreeformValueViewer: View {
+    let label: String
+    let value: String
+    let onCopy: (String) -> Void
+
+    @State private var selectedText = ""
+    @State private var showCopied = false
+    @State private var copiedFeedbackTask: Task<Void, Never>?
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(label)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack {
+                Text(label)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    copy(selectedText.isEmpty ? value : selectedText)
+                } label: {
+                    Label(copyButtonTitle, systemImage: showCopied ? "checkmark" : "doc.on.doc")
+                }
+                .controlSize(.small)
+                .help(selectedText.isEmpty ? "Copy entire note" : "Copy highlighted text")
+            }
 
-            CopyableValueText(
-                value: value,
-                isMonospaced: true,
-                lineLimit: nil,
-                textAlignment: .leading,
-                onCopy: onCopy
-            )
-            .frame(maxWidth: .infinity, alignment: .leading)
+            SafeSelectableTextView(text: value, selectedText: $selectedText, onCopy: copy)
+                .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
+        .onDisappear {
+            copiedFeedbackTask?.cancel()
+        }
+    }
+
+    private var copyButtonTitle: LocalizedStringKey {
+        if showCopied { return "Copied" }
+        return selectedText.isEmpty ? "Copy" : "Copy Selection"
+    }
+
+    private func copy(_ text: String) {
+        onCopy(text)
+        copiedFeedbackTask?.cancel()
+        showCopied = true
+        copiedFeedbackTask = Task {
+            try? await Task.sleep(for: .seconds(1.2))
+            guard !Task.isCancelled else { return }
+            showCopied = false
+        }
     }
 }
