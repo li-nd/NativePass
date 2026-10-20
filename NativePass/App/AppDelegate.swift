@@ -7,6 +7,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         DockVisibility.applyFromPreferences()
         observeWindowFocusChanges()
+        Self.excludeWindowsFromScreenCapture()
+    }
+
+    /// Keeps revealed secrets out of screenshots, recordings and screen sharing.
+    static func excludeWindowsFromScreenCapture() {
+        for window in NSApp.windows where window.sharingType != .none {
+            window.sharingType = .none
+        }
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
@@ -24,12 +32,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let center = NotificationCenter.default
         let names: [Notification.Name] = [
             NSWindow.didBecomeKeyNotification,
+            NSWindow.didBecomeMainNotification,
             NSWindow.didResignKeyNotification,
             NSWindow.willCloseNotification,
             NSWindow.didMiniaturizeNotification,
             NSWindow.didDeminiaturizeNotification,
         ]
         let handler: (Notification) -> Void = { _ in
+            AppDelegate.excludeWindowsFromScreenCapture()
             DispatchQueue.main.async {
                 DockVisibility.sync()
             }

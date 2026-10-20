@@ -110,6 +110,7 @@ final class QuickAccessController: @unchecked Sendable {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
+        panel.sharingType = .none
         return panel
     }
 
