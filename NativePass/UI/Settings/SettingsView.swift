@@ -20,6 +20,7 @@ struct SettingsView: View {
     @State private var autoTypeDelay = AppPreferences.autoTypeDelayMilliseconds
     @State private var showFieldPreviews = AppPreferences.showQuickAccessFieldPreviews
     @State private var hideFromDock = AppPreferences.hideFromDock
+    @State private var keepClipboardCopiesLocal = AppPreferences.keepClipboardCopiesLocal
     @State private var launchAtLogin = LaunchAtLoginService.isEnabled
     @State private var launchAtLoginMessage: String?
     @State private var accessibilityTrusted = AutoTypeService.isTrusted()
@@ -212,18 +213,6 @@ struct SettingsView: View {
                     .onChange(of: passwordLength) { _, value in
                         AppPreferences.generatedPasswordLength = value
                     }
-            }
-
-            Section("Clipboard") {
-                Stepper(
-                    "Clear after \(Int(clipboardTimeout))s",
-                    value: $clipboardTimeout,
-                    in: 0...300,
-                    step: 5
-                )
-                .onChange(of: clipboardTimeout) { _, value in
-                    AppPreferences.clipboardClearTimeout = value
-                }
             }
 
             Section("Reveal") {
@@ -608,6 +597,28 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section {
+                Stepper(value: $clipboardTimeout, in: 0...300, step: 5) {
+                    if clipboardTimeout > 0 {
+                        Text("Clear copied secrets after \(Int(clipboardTimeout))s")
+                    } else {
+                        Text("Never clear copied secrets")
+                    }
+                }
+                .onChange(of: clipboardTimeout) { _, value in
+                    AppPreferences.clipboardClearTimeout = value
+                }
+
+                Toggle("Keep clipboard copies local and concealed", isOn: $keepClipboardCopiesLocal)
+                    .onChange(of: keepClipboardCopiesLocal) { _, value in
+                        AppPreferences.keepClipboardCopiesLocal = value
+                    }
+            } header: {
+                Text("Clipboard")
+            } footer: {
+                Text("Local copies don't sync to other devices through Universal Clipboard, and clipboard managers that honor the concealed marker won't record them.")
+            }
+
             Section("GPG Touch ID") {
                 Text("To use Touch ID when decrypting passwords, install pinentry-mac and add to ~/.gnupg/gpg-agent.conf:")
                     .font(.caption)
@@ -688,6 +699,7 @@ struct SettingsView: View {
         autoTypeDelay = AppPreferences.autoTypeDelayMilliseconds
         showFieldPreviews = AppPreferences.showQuickAccessFieldPreviews
         hideFromDock = AppPreferences.hideFromDock
+        keepClipboardCopiesLocal = AppPreferences.keepClipboardCopiesLocal
         refreshLaunchAtLoginState()
         accessibilityTrusted = AutoTypeService.isTrusted()
     }

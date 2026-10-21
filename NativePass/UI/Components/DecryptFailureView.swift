@@ -94,7 +94,7 @@ struct DecryptFailureView: View {
                         .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
 
                     Button("Copy") {
-                        appState.clipboard.copy(command, clearAfter: 0)
+                        appState.clipboard.copy(command, clearAfter: 0, isSensitive: false)
                     }
                     .controlSize(.small)
                 }
