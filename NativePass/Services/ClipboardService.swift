@@ -15,15 +15,16 @@ final class ClipboardService {
     /// nspasteboard.org marker: clipboard managers should not record or display this item.
     private static let concealedType = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
 
-    /// Copies `text`. Sensitive copies stay on this Mac (no Universal Clipboard) and are
-    /// marked concealed so clipboard history tools skip them.
+    /// Copies `text`. When "Keep clipboard copies local" is on, sensitive copies stay on this
+    /// Mac (no Universal Clipboard) and are marked concealed so clipboard history tools skip them.
     func copy(_ text: String, clearAfter: TimeInterval? = nil, showToast: Bool = true, isSensitive: Bool = true) {
         let timeout = clearAfter ?? clearTimeout
+        let keepLocal = isSensitive && AppPreferences.keepClipboardCopiesLocal
         let pasteboard = NSPasteboard.general
         lastCopiedText = text
-        _ = pasteboard.prepareForNewContents(with: isSensitive ? .currentHostOnly : [])
+        _ = pasteboard.prepareForNewContents(with: keepLocal ? .currentHostOnly : [])
         pasteboard.setString(text, forType: .string)
-        if isSensitive {
+        if keepLocal {
             pasteboard.setData(Data(), forType: Self.concealedType)
         }
 

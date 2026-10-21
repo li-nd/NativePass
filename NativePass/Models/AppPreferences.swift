@@ -28,12 +28,27 @@ enum AppPreferences {
         set { UserDefaults.standard.set(newValue, forKey: "generatedPasswordLength") }
     }
 
+    /// Seconds before a copied secret is cleared from the clipboard; 0 means never.
     static var clipboardClearTimeout: TimeInterval {
         get {
-            let stored = UserDefaults.standard.double(forKey: "clipboardClearTimeout")
-            return stored == 0 ? defaultClipboardTimeout : stored
+            if UserDefaults.standard.object(forKey: "clipboardClearTimeout") == nil {
+                return defaultClipboardTimeout
+            }
+            return UserDefaults.standard.double(forKey: "clipboardClearTimeout")
         }
-        set { UserDefaults.standard.set(newValue, forKey: "clipboardClearTimeout") }
+        set { UserDefaults.standard.set(max(newValue, 0), forKey: "clipboardClearTimeout") }
+    }
+
+    /// When true, sensitive copies stay on this Mac (no Universal Clipboard) and are marked
+    /// concealed so clipboard managers skip them.
+    static var keepClipboardCopiesLocal: Bool {
+        get {
+            if UserDefaults.standard.object(forKey: "keepClipboardCopiesLocal") == nil {
+                return true
+            }
+            return UserDefaults.standard.bool(forKey: "keepClipboardCopiesLocal")
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "keepClipboardCopiesLocal") }
     }
 
     static var revealHideDelay: TimeInterval {
