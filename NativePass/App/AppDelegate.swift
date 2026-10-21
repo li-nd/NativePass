@@ -23,6 +23,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// True when exclusion is on but an open window is still capturable. macOS won't hide a
+    /// window again once it has been made capturable, so it stays visible until relaunch.
+    static var hasWindowsAwaitingRelaunchForScreenCapture: Bool {
+        guard AppPreferences.excludeFromScreenCapture else { return false }
+        return NSApp.windows.contains { window in
+            guard window.windowNumber > 0,
+                  let info = CGWindowListCopyWindowInfo(.optionIncludingWindow, CGWindowID(window.windowNumber)) as? [[String: Any]],
+                  let state = info.first?[kCGWindowSharingState as String] as? Int
+            else { return false }
+            return state != Int(NSWindow.SharingType.none.rawValue)
+        }
+    }
+
     func applicationDidBecomeActive(_ notification: Notification) {
         DockVisibility.sync()
     }

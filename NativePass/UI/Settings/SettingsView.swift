@@ -12,6 +12,7 @@ struct SettingsView: View {
     @State private var lockTimeout: AppLockService.LockTimeout = .fifteen
     @State private var securityChangeError: String?
     @State private var excludeFromScreenCapture = AppPreferences.excludeFromScreenCapture
+    @State private var showScreenCaptureRestartAlert = false
     @State private var selectedLanguage: AppLanguage = AppLanguage.preference
     @State private var showLanguageRestartAlert = false
     @State private var autoTypeEnabled = AppPreferences.autoTypeEnabled
@@ -69,6 +70,14 @@ struct SettingsView: View {
             Button("Later", role: .cancel) {}
         } message: {
             Text("Language changes apply after restart.")
+        }
+        .alert("Restart NativePass?", isPresented: $showScreenCaptureRestartAlert) {
+            Button("Restart Now") {
+                AppLanguage.relaunchApp()
+            }
+            Button("Later", role: .cancel) {}
+        } message: {
+            Text("macOS can't hide a window again after it has been visible to screen capture. Restart NativePass to hide windows that are already open.")
         }
     }
 
@@ -613,6 +622,7 @@ struct SettingsView: View {
                     .onChange(of: excludeFromScreenCapture) { _, value in
                         AppPreferences.excludeFromScreenCapture = value
                         AppDelegate.applyScreenCapturePreference()
+                        showScreenCaptureRestartAlert = AppDelegate.hasWindowsAwaitingRelaunchForScreenCapture
                     }
             } header: {
                 Text("Screen Capture")
