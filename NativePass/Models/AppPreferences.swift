@@ -92,4 +92,15 @@ enum AppPreferences {
         get { UserDefaults.standard.bool(forKey: "hideFromDock") }
         set { UserDefaults.standard.set(newValue, forKey: "hideFromDock") }
     }
+
+    /// When true, app windows are hidden from screenshots, recordings and screen sharing.
+    static var excludeFromScreenCapture: Bool {
+        get {
+            if UserDefaults.standard.object(forKey: "excludeFromScreenCapture") == nil {
+                return true
+            }
+            return UserDefaults.standard.bool(forKey: "excludeFromScreenCapture")
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "excludeFromScreenCapture") }
+    }
 }

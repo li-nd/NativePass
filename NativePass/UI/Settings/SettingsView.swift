@@ -11,6 +11,7 @@ struct SettingsView: View {
     @State private var importHelp: String?
     @State private var lockTimeout: AppLockService.LockTimeout = .fifteen
     @State private var securityChangeError: String?
+    @State private var excludeFromScreenCapture = AppPreferences.excludeFromScreenCapture
     @State private var selectedLanguage: AppLanguage = AppLanguage.preference
     @State private var showLanguageRestartAlert = false
     @State private var autoTypeEnabled = AppPreferences.autoTypeEnabled
@@ -606,6 +607,18 @@ struct SettingsView: View {
                     .font(.caption.monospaced())
                     .textSelection(.enabled)
             }
+
+            Section {
+                Toggle("Hide windows from screen capture", isOn: $excludeFromScreenCapture)
+                    .onChange(of: excludeFromScreenCapture) { _, value in
+                        AppPreferences.excludeFromScreenCapture = value
+                        AppDelegate.applyScreenCapturePreference()
+                    }
+            } header: {
+                Text("Screen Capture")
+            } footer: {
+                Text("NativePass windows appear blank in screenshots, screen recordings and screen sharing.")
+            }
         }
         .formStyle(.grouped)
         .padding()
@@ -658,6 +671,7 @@ struct SettingsView: View {
         clipboardTimeout = AppPreferences.clipboardClearTimeout
         revealHideDelay = AppPreferences.revealHideDelay
         lockTimeout = appState.appLock.timeout
+        excludeFromScreenCapture = AppPreferences.excludeFromScreenCapture
         selectedLanguage = AppLanguage.preference
         autoTypeEnabled = AppPreferences.autoTypeEnabled
         quickAccessPrimaryAction = AppPreferences.quickAccessPrimaryAction

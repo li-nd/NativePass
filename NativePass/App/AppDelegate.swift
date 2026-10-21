@@ -7,13 +7,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         DockVisibility.applyFromPreferences()
         observeWindowFocusChanges()
-        Self.excludeWindowsFromScreenCapture()
+        Self.applyScreenCapturePreference()
     }
 
-    /// Keeps revealed secrets out of screenshots, recordings and screen sharing.
-    static func excludeWindowsFromScreenCapture() {
-        for window in NSApp.windows where window.sharingType != .none {
-            window.sharingType = .none
+    /// Window sharing type for the current Settings choice. `.none` keeps revealed secrets
+    /// out of screenshots, recordings and screen sharing.
+    static var preferredSharingType: NSWindow.SharingType {
+        AppPreferences.excludeFromScreenCapture ? .none : .readOnly
+    }
+
+    static func applyScreenCapturePreference() {
+        let sharingType = preferredSharingType
+        for window in NSApp.windows where window.sharingType != sharingType {
+            window.sharingType = sharingType
         }
     }
 
@@ -39,7 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSWindow.didDeminiaturizeNotification,
         ]
         let handler: (Notification) -> Void = { _ in
-            AppDelegate.excludeWindowsFromScreenCapture()
+            AppDelegate.applyScreenCapturePreference()
             DispatchQueue.main.async {
                 DockVisibility.sync()
             }
