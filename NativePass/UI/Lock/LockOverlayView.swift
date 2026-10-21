@@ -56,8 +56,13 @@ struct LockOverlayView: View {
         try? await Task.sleep(for: .milliseconds(150))
 
         let outcome = await appState.appLock.authenticateForAutoUnlock()
-        if case .failed = outcome {
+        switch outcome {
+        case .failed:
             errorMessage = "Authentication failed."
+        case .unavailable:
+            errorMessage = String(localized: "Authentication isn't available. Set a login password or Touch ID in System Settings to unlock.")
+        case .success, .cancelled:
+            break
         }
     }
 
@@ -76,6 +81,8 @@ struct LockOverlayView: View {
             break
         case .failed:
             errorMessage = "Authentication failed."
+        case .unavailable:
+            errorMessage = String(localized: "Authentication isn't available. Set a login password or Touch ID in System Settings to unlock.")
         }
     }
 
