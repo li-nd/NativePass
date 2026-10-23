@@ -656,6 +656,8 @@ struct QuickAccessView: View {
             break
         case .failed:
             unlockError = String(localized: "Authentication failed.")
+        case .unavailable:
+            unlockError = String(localized: "Authentication isn't available. Set a login password or Touch ID in System Settings to unlock.")
         }
     }
 

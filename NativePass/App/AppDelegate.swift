@@ -7,6 +7,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         DockVisibility.applyFromPreferences()
         observeWindowFocusChanges()
+        Self.applyScreenCapturePreference()
+    }
+
+    /// Window sharing type for the current Settings choice. `.none` keeps revealed secrets
+    /// out of screenshots, recordings and screen sharing.
+    static var preferredSharingType: NSWindow.SharingType {
+        AppPreferences.excludeFromScreenCapture ? .none : .readOnly
+    }
+
+    static func applyScreenCapturePreference() {
+        let sharingType = preferredSharingType
+        for window in NSApp.windows where window.sharingType != sharingType {
+            window.sharingType = sharingType
+        }
+    }
+
+    /// True when exclusion is on but an open window is still capturable. macOS won't hide a
+    /// window again once it has been made capturable, so it stays visible until relaunch.
+    static var hasWindowsAwaitingRelaunchForScreenCapture: Bool {
+        guard AppPreferences.excludeFromScreenCapture else { return false }
+        return NSApp.windows.contains { window in
+            guard window.windowNumber > 0,
+                  let info = CGWindowListCopyWindowInfo(.optionIncludingWindow, CGWindowID(window.windowNumber)) as? [[String: Any]],
+                  let state = info.first?[kCGWindowSharingState as String] as? Int
+            else { return false }
+            return state != Int(NSWindow.SharingType.none.rawValue)
+        }
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
@@ -24,12 +51,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let center = NotificationCenter.default
         let names: [Notification.Name] = [
             NSWindow.didBecomeKeyNotification,
+            NSWindow.didBecomeMainNotification,
             NSWindow.didResignKeyNotification,
             NSWindow.willCloseNotification,
             NSWindow.didMiniaturizeNotification,
             NSWindow.didDeminiaturizeNotification,
         ]
         let handler: (Notification) -> Void = { _ in
+            AppDelegate.applyScreenCapturePreference()
             DispatchQueue.main.async {
                 DockVisibility.sync()
             }

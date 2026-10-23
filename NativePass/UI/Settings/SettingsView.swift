@@ -11,6 +11,8 @@ struct SettingsView: View {
     @State private var importHelp: String?
     @State private var lockTimeout: AppLockService.LockTimeout = .fifteen
     @State private var securityChangeError: String?
+    @State private var excludeFromScreenCapture = AppPreferences.excludeFromScreenCapture
+    @State private var showScreenCaptureRestartAlert = false
     @State private var selectedLanguage: AppLanguage = AppLanguage.preference
     @State private var showLanguageRestartAlert = false
     @State private var autoTypeEnabled = AppPreferences.autoTypeEnabled
@@ -18,6 +20,7 @@ struct SettingsView: View {
     @State private var autoTypeDelay = AppPreferences.autoTypeDelayMilliseconds
     @State private var showFieldPreviews = AppPreferences.showQuickAccessFieldPreviews
     @State private var hideFromDock = AppPreferences.hideFromDock
+    @State private var keepClipboardCopiesLocal = AppPreferences.keepClipboardCopiesLocal
     @State private var launchAtLogin = LaunchAtLoginService.isEnabled
     @State private var launchAtLoginMessage: String?
     @State private var accessibilityTrusted = AutoTypeService.isTrusted()
@@ -72,6 +75,14 @@ struct SettingsView: View {
             Button("Later", role: .cancel) {}
         } message: {
             Text("Language changes apply after restart.")
+        }
+        .alert("Restart NativePass?", isPresented: $showScreenCaptureRestartAlert) {
+            Button("Restart Now") {
+                AppLanguage.relaunchApp()
+            }
+            Button("Later", role: .cancel) {}
+        } message: {
+            Text("macOS can't hide a window again after it has been visible to screen capture. Restart NativePass to hide windows that are already open.")
         }
     }
 
@@ -214,18 +225,6 @@ struct SettingsView: View {
                 Text("Passwords")
             } footer: {
                 Text("Character sets and other options are chosen in Generate Password… when editing an entry.")
-            }
-
-            Section("Clipboard") {
-                Stepper(
-                    "Clear after \(Int(clipboardTimeout))s",
-                    value: $clipboardTimeout,
-                    in: 0...300,
-                    step: 5
-                )
-                .onChange(of: clipboardTimeout) { _, value in
-                    AppPreferences.clipboardClearTimeout = value
-                }
             }
 
             Section("Reveal") {
@@ -610,6 +609,28 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section {
+                Stepper(value: $clipboardTimeout, in: 0...300, step: 5) {
+                    if clipboardTimeout > 0 {
+                        Text("Clear copied secrets after \(Int(clipboardTimeout))s")
+                    } else {
+                        Text("Never clear copied secrets")
+                    }
+                }
+                .onChange(of: clipboardTimeout) { _, value in
+                    AppPreferences.clipboardClearTimeout = value
+                }
+
+                Toggle("Keep clipboard copies local and concealed", isOn: $keepClipboardCopiesLocal)
+                    .onChange(of: keepClipboardCopiesLocal) { _, value in
+                        AppPreferences.keepClipboardCopiesLocal = value
+                    }
+            } header: {
+                Text("Clipboard")
+            } footer: {
+                Text("Local copies don't sync to other devices through Universal Clipboard, and clipboard managers that honor the concealed marker won't record them.")
+            }
+
             Section("GPG Touch ID") {
                 Text("To use Touch ID when decrypting passwords, install pinentry-mac and add to ~/.gnupg/gpg-agent.conf:")
                     .font(.caption)
@@ -617,6 +638,19 @@ struct SettingsView: View {
                 Text("pinentry-program /opt/homebrew/bin/pinentry-mac")
                     .font(.caption.monospaced())
                     .textSelection(.enabled)
+            }
+
+            Section {
+                Toggle("Hide windows from screen capture", isOn: $excludeFromScreenCapture)
+                    .onChange(of: excludeFromScreenCapture) { _, value in
+                        AppPreferences.excludeFromScreenCapture = value
+                        AppDelegate.applyScreenCapturePreference()
+                        showScreenCaptureRestartAlert = AppDelegate.hasWindowsAwaitingRelaunchForScreenCapture
+                    }
+            } header: {
+                Text("Screen Capture")
+            } footer: {
+                Text("NativePass windows appear blank in screenshots, screen recordings and screen sharing.")
             }
         }
         .formStyle(.grouped)
@@ -816,12 +850,14 @@ struct SettingsView: View {
         clipboardTimeout = AppPreferences.clipboardClearTimeout
         revealHideDelay = AppPreferences.revealHideDelay
         lockTimeout = appState.appLock.timeout
+        excludeFromScreenCapture = AppPreferences.excludeFromScreenCapture
         selectedLanguage = AppLanguage.preference
         autoTypeEnabled = AppPreferences.autoTypeEnabled
         quickAccessPrimaryAction = AppPreferences.quickAccessPrimaryAction
         autoTypeDelay = AppPreferences.autoTypeDelayMilliseconds
         showFieldPreviews = AppPreferences.showQuickAccessFieldPreviews
         hideFromDock = AppPreferences.hideFromDock
+        keepClipboardCopiesLocal = AppPreferences.keepClipboardCopiesLocal
         refreshLaunchAtLoginState()
         accessibilityTrusted = AutoTypeService.isTrusted()
     }
@@ -876,7 +912,9 @@ struct SettingsView: View {
         guard newValue != appState.appLock.isEnabled else { return }
 
         if newValue {
-            appState.appLock.enableLock()
+            if !appState.appLock.enableLock() {
+                securityChangeError = String(localized: "App Lock needs a login password or Touch ID. Set one up in System Settings first.")
+            }
             return
         }
 

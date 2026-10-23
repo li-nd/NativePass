@@ -25,6 +25,8 @@ final class AppLockService {
         case success
         case cancelled
         case failed
+        /// No passcode / biometrics configured, so the lock cannot be verified.
+        case unavailable
     }
 
     var isEnabled: Bool {
@@ -78,10 +80,19 @@ final class AppLockService {
         setLocked(true, allowsAutoUnlock: false)
     }
 
-    func enableLock() {
+    /// Whether macOS can verify the user (login password or Touch ID).
+    static func isAuthenticationAvailable() -> Bool {
+        LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: nil)
+    }
+
+    /// Returns `false` without enabling when the lock could never be unlocked.
+    @discardableResult
+    func enableLock() -> Bool {
+        guard Self.isAuthenticationAvailable() else { return false }
         isEnabled = true
         setLocked(true, allowsAutoUnlock: false)
         lastActivity = Date()
+        return true
     }
 
     func shouldAttemptAutoUnlock() -> Bool {
@@ -159,12 +170,9 @@ final class AppLockService {
             policy = nil
         }
 
+        // Fail closed: never unlock without a successful evaluation.
         guard let policy else {
-            if allowPassword {
-                unlockAfterAuthentication()
-                return .success
-            }
-            return .failed
+            return allowPassword ? .unavailable : .failed
         }
 
         do {

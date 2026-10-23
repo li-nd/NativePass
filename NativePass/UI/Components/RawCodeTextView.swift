@@ -2,36 +2,46 @@ import AppKit
 import SwiftUI
 
 /// Monospaced `NSTextView` with a layout-synced line-number gutter.
+/// When `onCopy` is set (typically read-only view), every copy path uses the sensitive clipboard.
 struct RawCodeTextView: NSViewRepresentable {
     @Binding var text: String
     var isEditable: Bool = true
     var onEditingChanged: (() -> Void)?
+    var selectedText: Binding<String> = .constant("")
+    var onCopy: ((String) -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
     }
 
     func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSTextView.scrollableTextView()
+        let scrollView = NSScrollView()
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = true
         scrollView.autohidesScrollers = true
         scrollView.borderType = .noBorder
         scrollView.drawsBackground = false
 
-        guard let textView = scrollView.documentView as? NSTextView else {
-            return scrollView
+        let textView: NSTextView
+        if onCopy != nil {
+            let safe = SafeCopyTextView(frame: .zero)
+            safe.onCopy = { [weak coordinator = context.coordinator] selection in
+                coordinator?.parent.onCopy?(selection)
+            }
+            textView = safe
+        } else {
+            textView = NSTextView(frame: .zero)
         }
 
         textView.delegate = context.coordinator
         textView.isRichText = false
-        textView.allowsUndo = true
+        textView.allowsUndo = isEditable
         textView.isAutomaticQuoteSubstitutionEnabled = false
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticTextReplacementEnabled = false
         textView.isAutomaticSpellingCorrectionEnabled = false
         textView.isContinuousSpellCheckingEnabled = false
-        textView.usesFindBar = true
+        textView.usesFindBar = isEditable
         textView.isHorizontallyResizable = true
         textView.isVerticallyResizable = true
         textView.autoresizingMask = [.width]
@@ -48,6 +58,7 @@ struct RawCodeTextView: NSViewRepresentable {
 
         applyChrome(to: textView, editable: isEditable)
         textView.string = text
+        scrollView.documentView = textView
 
         let ruler = LineNumberRulerView(textView: textView)
         scrollView.rulersVisible = true
@@ -64,10 +75,18 @@ struct RawCodeTextView: NSViewRepresentable {
         guard let textView = scrollView.documentView as? NSTextView else { return }
         applyChrome(to: textView, editable: isEditable)
 
+        if let safe = textView as? SafeCopyTextView {
+            safe.onCopy = { [weak coordinator = context.coordinator] selection in
+                coordinator?.parent.onCopy?(selection)
+            }
+        }
+
         if textView.string != text {
             let selected = textView.selectedRanges
+            context.coordinator.isUpdatingText = true
             textView.string = text
             textView.selectedRanges = selected
+            context.coordinator.isUpdatingText = false
         }
 
         context.coordinator.parent = self
@@ -94,6 +113,7 @@ struct RawCodeTextView: NSViewRepresentable {
         var parent: RawCodeTextView
         weak var textView: NSTextView?
         weak var rulerView: LineNumberRulerView?
+        var isUpdatingText = false
 
         init(_ parent: RawCodeTextView) {
             self.parent = parent
@@ -104,6 +124,25 @@ struct RawCodeTextView: NSViewRepresentable {
             parent.text = textView.string
             rulerView?.invalidateLineNumbers()
             parent.onEditingChanged?()
+        }
+
+        func textViewDidChangeSelection(_ notification: Notification) {
+            guard !isUpdatingText else { return }
+            let selection: String
+            if let safe = textView as? SafeCopyTextView {
+                selection = safe.selectedSubstring
+            } else if let textView {
+                let content = textView.string as NSString
+                selection = textView.selectedRanges
+                    .map { content.substring(with: $0.rangeValue) }
+                    .filter { !$0.isEmpty }
+                    .joined(separator: "\n")
+            } else {
+                return
+            }
+            if parent.selectedText.wrappedValue != selection {
+                parent.selectedText.wrappedValue = selection
+            }
         }
     }
 }

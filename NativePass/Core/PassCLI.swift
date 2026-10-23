@@ -17,13 +17,14 @@ actor PassCLI {
             throw PassError.binaryNotFound("pass")
         }
 
+        let processEnv = environment.processEnvironment()
         return try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
                     let result = try Self.execute(
                         binary: passBinary,
                         arguments: arguments,
-                        environment: self.environment.processEnvironment(),
+                        environment: processEnv,
                         stdin: stdin,
                         timeout: timeout
                     )
@@ -94,7 +95,7 @@ actor PassCLI {
         if force { args.append("-f") }
         args.append(name)
         let data = Data(content.utf8)
-        try await runOrThrow(args, stdin: data, timeout: 60)
+        _ = try await runOrThrow(args, stdin: data, timeout: 60)
     }
 
     func generate(
@@ -116,7 +117,7 @@ actor PassCLI {
         var args = ["rm", "-f"]
         if recursive { args.append("-r") }
         args.append(name)
-        try await runOrThrow(args, timeout: 30)
+        _ = try await runOrThrow(args, timeout: 30)
     }
 
     func move(from oldName: String, to newName: String, force: Bool = true) async throws {
@@ -124,7 +125,7 @@ actor PassCLI {
         if force { args.append("-f") }
         args.append(oldName)
         args.append(newName)
-        try await runOrThrow(args, timeout: 30)
+        _ = try await runOrThrow(args, timeout: 30)
     }
 
     /// Copies a password entry or an entire directory tree (`pass cp`).
@@ -133,11 +134,11 @@ actor PassCLI {
         if force { args.append("-f") }
         args.append(oldName)
         args.append(newName)
-        try await runOrThrow(args, timeout: 120)
+        _ = try await runOrThrow(args, timeout: 120)
     }
 
     func git(_ arguments: [String], timeout: TimeInterval = 120) async throws -> String {
-        var args = ["git"] + arguments
+        let args = ["git"] + arguments
         return try await runOrThrow(args, timeout: timeout)
     }
 
@@ -154,7 +155,7 @@ actor PassCLI {
         var args = ["otp", "append"]
         if force { args.append("-f") }
         args.append(name)
-        try await runOrThrow(args, stdin: Data(uri.utf8), timeout: 60)
+        _ = try await runOrThrow(args, stdin: Data(uri.utf8), timeout: 60)
     }
 
     /// Initialize or re-encrypt the store (or a subfolder) for the given GPG recipient ids.
@@ -170,19 +171,20 @@ actor PassCLI {
             args.append(contentsOf: ["-p", path])
         }
         args.append(contentsOf: cleaned)
-        try await runOrThrow(args, timeout: timeout)
+        _ = try await runOrThrow(args, timeout: timeout)
     }
 
     func gitInit(timeout: TimeInterval = 60) async throws {
-        try await runOrThrow(["git", "init"], timeout: timeout)
+        _ = try await runOrThrow(["git", "init"], timeout: timeout)
     }
 
     /// Decrypt GPG ciphertext using the same environment as `pass`.
     func decryptGPG(_ ciphertext: Data, timeout: TimeInterval = 60) async throws -> String {
         let gpgName = environment.gpgBinary
+        let processEnv = environment.processEnvironment()
         let gpgURL = Self.locateExecutable(
             named: gpgName,
-            path: environment.processEnvironment()["PATH"] ?? "/usr/bin"
+            path: processEnv["PATH"] ?? "/usr/bin"
         ) ?? URL(fileURLWithPath: "/usr/bin/\(gpgName)")
 
         return try await withCheckedThrowingContinuation { continuation in
@@ -191,7 +193,7 @@ actor PassCLI {
                     let result = try Self.execute(
                         binary: gpgURL,
                         arguments: ["--decrypt", "--batch", "--quiet"],
-                        environment: self.environment.processEnvironment(),
+                        environment: processEnv,
                         stdin: ciphertext,
                         timeout: timeout,
                         commandLabel: "gpg --decrypt"

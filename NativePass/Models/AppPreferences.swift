@@ -87,12 +87,27 @@ enum AppPreferences {
         return UserDefaults.standard.bool(forKey: key)
     }
 
+    /// Seconds before a copied secret is cleared from the clipboard; 0 means never.
     static var clipboardClearTimeout: TimeInterval {
         get {
-            let stored = UserDefaults.standard.double(forKey: "clipboardClearTimeout")
-            return stored == 0 ? defaultClipboardTimeout : stored
+            if UserDefaults.standard.object(forKey: "clipboardClearTimeout") == nil {
+                return defaultClipboardTimeout
+            }
+            return UserDefaults.standard.double(forKey: "clipboardClearTimeout")
         }
-        set { UserDefaults.standard.set(newValue, forKey: "clipboardClearTimeout") }
+        set { UserDefaults.standard.set(max(newValue, 0), forKey: "clipboardClearTimeout") }
+    }
+
+    /// When true, sensitive copies stay on this Mac (no Universal Clipboard) and are marked
+    /// concealed so clipboard managers skip them.
+    static var keepClipboardCopiesLocal: Bool {
+        get {
+            if UserDefaults.standard.object(forKey: "keepClipboardCopiesLocal") == nil {
+                return true
+            }
+            return UserDefaults.standard.bool(forKey: "keepClipboardCopiesLocal")
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "keepClipboardCopiesLocal") }
     }
 
     static var revealHideDelay: TimeInterval {
@@ -150,5 +165,16 @@ enum AppPreferences {
     static var hideFromDock: Bool {
         get { UserDefaults.standard.bool(forKey: "hideFromDock") }
         set { UserDefaults.standard.set(newValue, forKey: "hideFromDock") }
+    }
+
+    /// When true, app windows are hidden from screenshots, recordings and screen sharing.
+    static var excludeFromScreenCapture: Bool {
+        get {
+            if UserDefaults.standard.object(forKey: "excludeFromScreenCapture") == nil {
+                return true
+            }
+            return UserDefaults.standard.bool(forKey: "excludeFromScreenCapture")
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "excludeFromScreenCapture") }
     }
 }

@@ -195,7 +195,7 @@ struct SystemDiagnosticsView: View {
                         NSWorkspace.shared.open(report.storePathURL)
                     }
                     Button("Copy Report") {
-                        appState.clipboard.copy(report.diagnosticText, clearAfter: 0)
+                        appState.clipboard.copy(report.diagnosticText, clearAfter: 0, isSensitive: false)
                     }
                     rerunDiagnosticsButton(title: "Re-run Checks")
                     if appState.isRunningFullDiagnostics {
@@ -230,7 +230,7 @@ struct SystemDiagnosticsView: View {
                                                 .textSelection(.enabled)
                                             Spacer()
                                             Button("Copy") {
-                                                appState.clipboard.copy(command, clearAfter: 0)
+                                                appState.clipboard.copy(command, clearAfter: 0, isSensitive: false)
                                             }
                                             .controlSize(.small)
                                         }
@@ -251,7 +251,7 @@ struct SystemDiagnosticsView: View {
                             .textSelection(.enabled)
                         Spacer()
                         Button("Copy Command") {
-                            appState.clipboard.copy("pass update \(firstEntry)", clearAfter: 0)
+                            appState.clipboard.copy("pass update \(firstEntry)", clearAfter: 0, isSensitive: false)
                         }
                     }
                 }

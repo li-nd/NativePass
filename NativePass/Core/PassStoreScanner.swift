@@ -1,6 +1,6 @@
 import Foundation
 
-enum PassStoreScanner {
+nonisolated enum PassStoreScanner {
     static func listEntries(in storeDirectory: URL) -> [String] {
         let fileManager = FileManager.default
         guard let enumerator = fileManager.enumerator(
