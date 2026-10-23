@@ -68,7 +68,7 @@ If the store is a Git repository and an entry has two or more revisions, open it
 ## Verification codes (TOTP)
 
 - In the entry editor, **Set Up Code…** accepts a bare secret (`JBSWY3DPEHPK3PXP`) or a full `otpauth://…` URI.
-- When configured, **Code** shows a live TOTP value with a countdown ring. While editing, **Copy Setup URL** and **Delete Code…** are available.
+- When configured, **Code** shows a live TOTP value with a countdown ring. While editing, **Show QR Code** (next to **Copy Setup URL**) displays a scannable QR for the setup URL; **Delete Code…** removes the OTP secret.
 - **Verification Codes** in the sidebar lists OTP entries after you have opened them at least once in this session (metadata comes from decrypt).
 - [pass-otp](plugins.md) is optional for NativePass’s built-in codes; install it if you also use `pass otp` on the CLI.
 
