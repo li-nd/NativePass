@@ -77,6 +77,6 @@ If the store is a Git repository and an entry has two or more revisions, open it
 If the store is a Git repository:
 
 - Use **Sync** in the sidebar for **Pull**, **Push**, and **Refresh** (or **⌃⌘⇧P** / **⌃⌘P**).
-- **Settings → Sync** shows branch / ahead / behind.
+- **Settings → Sync** shows branch, **upstream** tracking, ahead / behind, and Git remotes (**Add** / edit / remove; default name `origin`). Use **Change…** to pick another remote branch, **Fetch** to refresh remote refs, or **Push and Set Upstream** for the first push.
 
 ![Git sync](screenshots/2-push.png)

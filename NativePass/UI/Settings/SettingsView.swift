@@ -28,6 +28,10 @@ struct SettingsView: View {
     @State private var showRemoveStoreConfirm = false
     @State private var alsoDeleteStoreFiles = false
     @State private var selectedSettingsTab: SettingsTab = .general
+    @State private var remoteEditorMode: GitRemoteEditorMode?
+    @State private var remotePendingRemove: String?
+    @State private var remotesError: String?
+    @State private var showUpstreamEditor = false
 
     var body: some View {
         Group {
@@ -631,16 +635,48 @@ struct SettingsView: View {
     private var syncTab: some View {
         Form {
             Section("Git Status") {
-                Text("Use the sync button in the main toolbar for Pull and Push.")
+                Text("Use the sync button in the sidebar for Pull and Push.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
                 if let gitStatus = appState.gitSync.status {
                     LabeledContent("Branch", value: gitStatus.branch ?? "—")
-                    LabeledContent("Status", value: gitStatus.isClean ? String(localized: "Clean") : String(localized: "\(gitStatus.changedFilesCount) changed"))
+
+                    HStack(alignment: .firstTextBaseline) {
+                        LabeledContent(
+                            "Upstream",
+                            value: gitStatus.upstream ?? String(localized: "Not set")
+                        )
+                        Button("Change…") {
+                            showUpstreamEditor = true
+                        }
+                        .disabled(appState.gitSync.remotes.isEmpty || appState.appLock.isBlocking)
+                    }
+
+                    LabeledContent(
+                        "Status",
+                        value: gitStatus.isClean
+                            ? String(localized: "Clean")
+                            : String(localized: "\(gitStatus.changedFilesCount) changed")
+                    )
                     if gitStatus.hasUpstream {
                         LabeledContent("Ahead", value: "\(gitStatus.aheadCount)")
                         LabeledContent("Behind", value: "\(gitStatus.behindCount)")
+                    } else if !appState.gitSync.remotes.isEmpty {
+                        Text("No upstream branch. Push once to set tracking, or choose an existing remote branch.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        if let remoteName = appState.gitSync.preferredUpstreamRemoteName {
+                            Button("Push and Set Upstream (\(remoteName))") {
+                                Task {
+                                    await appState.gitSync.pushSetUpstream(
+                                        using: appState.git,
+                                        remote: remoteName
+                                    )
+                                }
+                            }
+                            .disabled(appState.gitSync.isSyncing || appState.appLock.isBlocking)
+                        }
                     }
                     if !gitStatus.changedFiles.isEmpty {
                         GitChangedFilesList(files: gitStatus.changedFiles)
@@ -650,14 +686,128 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Button("Refresh Status") {
-                    Task { await appState.refreshGitStatus() }
+                HStack {
+                    Button("Refresh Status") {
+                        Task { await appState.refreshGitStatus() }
+                    }
+                    Button("Fetch") {
+                        Task { await appState.gitSync.fetch(using: appState.git) }
+                    }
+                    .disabled(
+                        appState.gitSync.isSyncing
+                            || appState.gitSync.remotes.isEmpty
+                            || appState.appLock.isBlocking
+                    )
+                }
+            }
+
+            Section {
+                if appState.gitSync.remotes.isEmpty {
+                    Text("No remotes configured.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(appState.gitSync.remotes) { remote in
+                        HStack(alignment: .center, spacing: 12) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(remote.name)
+                                    .font(.body.weight(.medium))
+                                Text(remote.primaryURL)
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(.secondary)
+                                    .textSelection(.enabled)
+                                    .lineLimit(2)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                            Button {
+                                remoteEditorMode = .edit(remote)
+                            } label: {
+                                Image(systemName: "pencil")
+                            }
+                            .buttonStyle(.borderless)
+                            .help(String(localized: "Edit URL"))
+                            .accessibilityLabel(String(localized: "Edit URL"))
+
+                            Button {
+                                remotePendingRemove = remote.name
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .buttonStyle(.borderless)
+                            .foregroundStyle(.red)
+                            .help(String(localized: "Remove"))
+                            .accessibilityLabel(String(localized: "Remove"))
+                        }
+                        .contextMenu {
+                            Button("Edit URL…") {
+                                remoteEditorMode = .edit(remote)
+                            }
+                            Button("Remove…", role: .destructive) {
+                                remotePendingRemove = remote.name
+                            }
+                        }
+                    }
+                }
+
+                Button("Add Remote…") {
+                    remoteEditorMode = .add
+                }
+            } header: {
+                Text("Remotes")
+            } footer: {
+                Text("Authentication uses your existing SSH agent or HTTPS credentials.")
+            }
+
+            if let remotesError {
+                Section {
+                    Text(remotesError)
+                        .foregroundStyle(.red)
+                        .font(.callout)
                 }
             }
         }
         .formStyle(.grouped)
         .padding()
         .task { await appState.refreshGitStatus() }
+        .sheet(item: $remoteEditorMode) { mode in
+            GitRemoteEditorSheet(mode: mode)
+                .environment(appState)
+        }
+        .sheet(isPresented: $showUpstreamEditor) {
+            GitUpstreamEditorSheet()
+                .environment(appState)
+        }
+        .confirmationDialog(
+            remotePendingRemove.map { String(localized: "Remove remote “\($0)”?") }
+                ?? String(localized: "Remove Remote?"),
+            isPresented: Binding(
+                get: { remotePendingRemove != nil },
+                set: { if !$0 { remotePendingRemove = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Remove", role: .destructive) {
+                if let name = remotePendingRemove {
+                    Task { await removeRemote(named: name) }
+                }
+                remotePendingRemove = nil
+            }
+            Button("Cancel", role: .cancel) {
+                remotePendingRemove = nil
+            }
+        } message: {
+            Text("This only removes the remote from Git config. Your local password store is unchanged.")
+        }
+    }
+
+    @MainActor
+    private func removeRemote(named name: String) async {
+        do {
+            try await appState.gitSync.removeRemote(using: appState.git, name: name)
+            remotesError = nil
+        } catch {
+            remotesError = error.localizedDescription
+        }
     }
 
     private func syncLocalState() {
