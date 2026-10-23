@@ -24,7 +24,7 @@ enum PassError: Error, LocalizedError {
     }
 }
 
-struct PassCLIResult: Sendable {
+nonisolated struct PassCLIResult: Sendable {
     let stdoutData: Data
     let stderr: String
     let exitCode: Int32

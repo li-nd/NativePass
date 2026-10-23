@@ -73,7 +73,7 @@ struct PassEnvironment: Sendable {
         )
     }
 
-    func processEnvironment() -> [String: String] {
+    nonisolated func processEnvironment() -> [String: String] {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         var env: [String: String] = [
             "HOME": home,

@@ -1,6 +1,6 @@
 import Foundation
 
-enum PassVersionParser {
+nonisolated enum PassVersionParser {
     private static let passVersionPattern = /v([0-9]+(?:\.[0-9]+)*)/
 
     static func parsePassVersion(from text: String) -> String? {
