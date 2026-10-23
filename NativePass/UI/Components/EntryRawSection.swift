@@ -4,6 +4,7 @@ import SwiftUI
 /// View / edit the decrypted pass file as plain text, with a code-style line gutter.
 /// View mode sizes to content (scrolls inside only when taller than `maxBodyHeight`).
 /// Edit mode fills the remaining detail height.
+/// In view mode, Copy copies the highlighted range when present (same as multiline Form fields).
 struct EntryRawSection: View {
     let entryName: String
     let rawContent: String
@@ -11,8 +12,9 @@ struct EntryRawSection: View {
     /// Cap for view-mode body height; `nil` means unbounded (parent ScrollView handles overflow).
     var maxBodyHeight: CGFloat? = nil
     @Binding var editText: String
-    var onCopyAll: () -> Void
+    var onCopy: (String) -> Void
 
+    @State private var selectedText = ""
     @State private var showCopied = false
     @State private var copiedFeedbackTask: Task<Void, Never>?
 
@@ -20,14 +22,10 @@ struct EntryRawSection: View {
         isEditing ? editText : rawContent
     }
 
-    private var lines: [String] {
-        let parts = displayedText.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
-        return parts.isEmpty ? [""] : parts
+    private var lineCount: Int {
+        let parts = displayedText.split(separator: "\n", omittingEmptySubsequences: false)
+        return max(parts.count, 1)
     }
-
-    private var lineCount: Int { lines.count }
-
-    private var monoFont: Font { .system(.body, design: .monospaced) }
 
     private var lineHeight: CGFloat {
         let font = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
@@ -37,16 +35,6 @@ struct EntryRawSection: View {
     private var idealBodyHeight: CGFloat {
         CGFloat(lineCount) * lineHeight + 20
     }
-
-    private var gutterWidth: CGFloat {
-        let digits = max(String(lineCount).count, 2)
-        return CGFloat(digits) * 9 + 16
-    }
-
-    private var gutterColumnWidth: CGFloat { gutterWidth + 8 }
-
-    private let textLeadingPadding: CGFloat = 10
-    private let textTrailingPadding: CGFloat = 14
 
     private var cardShape: RoundedRectangle {
         RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -79,7 +67,10 @@ struct EntryRawSection: View {
             cardShape.fill(.quaternary.opacity(0.45))
         }
         .clipShape(cardShape)
-        .onDisappear { copiedFeedbackTask?.cancel() }
+        .onDisappear {
+            copiedFeedbackTask?.cancel()
+            selectedText = ""
+        }
     }
 
     private var header: some View {
@@ -99,24 +90,30 @@ struct EntryRawSection: View {
             Spacer(minLength: 8)
 
             if !isEditing {
-                Button(action: copyAll) {
+                Button {
+                    copy(selectedText.isEmpty ? rawContent : selectedText)
+                } label: {
                     Group {
                         if showCopied {
                             Label("Copied", systemImage: "checkmark")
                                 .foregroundStyle(.secondary)
                         } else {
-                            Label("Copy All", systemImage: "doc.on.doc")
+                            Label(copyButtonTitle, systemImage: "doc.on.doc")
                         }
                     }
                     .labelStyle(.titleAndIcon)
                 }
                 .buttonStyle(.borderless)
-                .help("Copy entire entry (⌘⇧C)")
+                .help(selectedText.isEmpty ? "Copy entire entry (⌘⇧C)" : "Copy highlighted text")
                 .disabled(rawContent.isEmpty)
             }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
+    }
+
+    private var copyButtonTitle: LocalizedStringKey {
+        selectedText.isEmpty ? "Copy All" : "Copy Selection"
     }
 
     private var lineCountLabel: String {
@@ -132,28 +129,13 @@ struct EntryRawSection: View {
             }
             return idealBodyHeight
         }()
-        let needsVerticalScroll = maxBodyHeight.map { idealBodyHeight > $0 } ?? false
 
-        return GeometryReader { geo in
-            let textColumnWidth = max(geo.size.width - gutterColumnWidth, 0)
-            ScrollView(needsVerticalScroll ? [.vertical, .horizontal] : [.horizontal], showsIndicators: true) {
-                HStack(alignment: .top, spacing: 0) {
-                    lineGutter(minHeight: idealBodyHeight)
-                    Text(rawContent.isEmpty ? String(localized: "(empty)") : rawContent)
-                        .font(monoFont)
-                        .foregroundStyle(rawContent.isEmpty ? .tertiary : .primary)
-                        .textSelection(.enabled)
-                        .lineLimit(nil)
-                        .fixedSize(horizontal: true, vertical: true)
-                        .padding(.vertical, 10)
-                        .padding(.leading, textLeadingPadding)
-                        .padding(.trailing, textTrailingPadding)
-                        .frame(minWidth: textColumnWidth, alignment: .topLeading)
-                }
-                .frame(minWidth: geo.size.width, alignment: .topLeading)
-            }
-            .frame(width: geo.size.width, height: geo.size.height)
-        }
+        return RawCodeTextView(
+            text: .constant(rawContent),
+            isEditable: false,
+            selectedText: $selectedText,
+            onCopy: copy
+        )
         .frame(maxWidth: .infinity)
         .frame(height: bodyHeight)
     }
@@ -163,37 +145,9 @@ struct EntryRawSection: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    @ViewBuilder
-    private func lineGutter(minHeight: CGFloat?) -> some View {
-        let numbers = Array(1...lineCount)
-        VStack(alignment: .trailing, spacing: 0) {
-            ForEach(numbers, id: \.self) { number in
-                Text("\(number)")
-                    .font(monoFont)
-                    .monospacedDigit()
-                    .foregroundStyle(.tertiary)
-                    .frame(height: lineHeight, alignment: .center)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.vertical, 10)
-        .padding(.trailing, 8)
-        .frame(width: gutterColumnWidth, alignment: .topTrailing)
-        .frame(minHeight: minHeight, maxHeight: .infinity, alignment: .top)
-        .background {
-            Rectangle()
-                .fill(.quaternary.opacity(0.35))
-        }
-        .overlay(alignment: .trailing) {
-            Rectangle()
-                .fill(.separator.opacity(0.6))
-                .frame(width: 1)
-        }
-        .accessibilityHidden(true)
-    }
-
-    private func copyAll() {
-        onCopyAll()
+    private func copy(_ text: String) {
+        guard !text.isEmpty else { return }
+        onCopy(text)
         copiedFeedbackTask?.cancel()
         showCopied = true
         copiedFeedbackTask = Task {

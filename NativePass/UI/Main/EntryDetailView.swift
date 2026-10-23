@@ -235,7 +235,7 @@ struct EntryDetailView: View {
                         isEditing: false,
                         maxBodyHeight: maxBody,
                         editText: $rawDraft,
-                        onCopyAll: { copyRaw(entry.rawContent) }
+                        onCopy: { copyRaw($0) }
                     )
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
@@ -258,7 +258,7 @@ struct EntryDetailView: View {
                 rawContent: entry.rawContent,
                 isEditing: true,
                 editText: $rawDraft,
-                onCopyAll: { copyRaw(entry.rawContent) }
+                onCopy: { copyRaw($0) }
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .layoutPriority(1)

@@ -187,8 +187,8 @@ struct EntryHistoryView: View {
                             isEditing: false,
                             maxBodyHeight: 280,
                             editText: .constant(loadedRevision.rawContent),
-                            onCopyAll: {
-                                appState.clipboard.copy(loadedRevision.rawContent, showToast: false)
+                            onCopy: { text in
+                                appState.clipboard.copy(text, showToast: false)
                             }
                         )
                     } else {
