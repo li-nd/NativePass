@@ -18,16 +18,19 @@ struct PasswordGeneratorSheet: View {
     private static let previewFontSize: CGFloat = 22
     private static let previewLineHeight: CGFloat = 28
     private static let sheetWidth: CGFloat = 460
+    /// Horizontal inset: page padding 20 + preview card padding 14, both sides.
+    private static let previewTextWidth: CGFloat = sheetWidth - 40 - 28
 
     var body: some View {
         Group {
             if embedsNavigationStack {
                 NavigationStack {
-                    generatorContent
+                    generatorPage
                 }
+                // Explicit size — macOS sheets ignore content-hugging / `.fitted` here.
                 .frame(width: Self.sheetWidth, height: sheetHeight)
             } else {
-                generatorContent
+                generatorPage
             }
         }
         .onAppear {
@@ -39,71 +42,58 @@ struct PasswordGeneratorSheet: View {
         }
     }
 
-    private var generatorContent: some View {
-        VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 16) {
-                previewRow
-
-                Divider()
-                    .padding(.vertical, 2)
-
-                lengthRow
-                characterSetsRow
-                ambiguousRow
-
-                if let errorMessage {
-                    Text(errorMessage)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
-            }
-            .padding(20)
-
-            Spacer(minLength: 0)
-
-            Divider()
-
-            HStack {
-                Spacer(minLength: 0)
-                Button("Cancel") { dismissGenerator() }
-                    .keyboardShortcut(.cancelAction)
-                Button("Use Password") {
-                    usePassword()
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(preview.isEmpty || !options.hasAnyCharset)
-                .keyboardShortcut(.defaultAction)
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 14)
-        }
-        .navigationTitle(String(localized: "Generate Password"))
-        .navigationBarBackButtonHidden(true)
-        .toolbar(.hidden, for: .automatic)
+    /// Grows with wrapped preview lines; keeps chrome compact (nav + controls + toolbar).
+    private var sheetHeight: CGFloat {
+        let textHeight = previewTextHeight(
+            forLength: max(preview.count, options.clampedLength, 1),
+            width: Self.previewTextWidth
+        )
+        return textHeight + 318
     }
 
-    /// Grows with length so long passwords fit; stays stable while regenerating the same length.
-    private var sheetHeight: CGFloat {
-        let previewWidth = Self.sheetWidth - 40 - 28
-        let textHeight = previewTextHeight(forLength: options.clampedLength, width: previewWidth)
-        return min(520, max(340, textHeight + 260))
+    private var generatorPage: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            previewRow
+
+            Divider()
+                .padding(.vertical, 2)
+
+            lengthRow
+            characterSetsRow
+            ambiguousRow
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .navigationTitle(String(localized: "Generate Password"))
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Cancel") { dismissGenerator() }
+                    .keyboardShortcut(.cancelAction)
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Use Password") { usePassword() }
+                    .disabled(preview.isEmpty || !options.hasAnyCharset)
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
     }
 
     // MARK: - Rows
 
     private var previewRow: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            GeometryReader { geo in
-                let width = geo.size.width
-                let length = max(preview.count, options.clampedLength, 1)
-                let textHeight = previewTextHeight(forLength: length, width: width)
-                coloredPreview(width: width)
-                    .frame(maxWidth: .infinity, minHeight: textHeight, maxHeight: textHeight, alignment: .topLeading)
-            }
-            .frame(height: previewTextHeight(
-                forLength: max(preview.count, options.clampedLength, 1),
-                width: Self.sheetWidth - 40 - 28
-            ))
+        let textHeight = previewTextHeight(
+            forLength: max(preview.count, options.clampedLength, 1),
+            width: Self.previewTextWidth
+        )
+        return VStack(alignment: .leading, spacing: 12) {
+            coloredPreview(width: Self.previewTextWidth)
+                .frame(maxWidth: .infinity, minHeight: textHeight, maxHeight: textHeight, alignment: .topLeading)
 
             HStack(spacing: 8) {
                 if showCopiedFeedback {
@@ -145,6 +135,8 @@ struct PasswordGeneratorSheet: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(.quaternary.opacity(0.45))
         }
+        // Prevent the card from absorbing extra sheet height.
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private func coloredPreview(width: CGFloat) -> some View {
