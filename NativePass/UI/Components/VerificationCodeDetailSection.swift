@@ -15,6 +15,7 @@ struct VerificationCodeDetailSection: View {
     @State private var showOTPInput = false
     @State private var setupError: String?
     @State private var showDeleteConfirm = false
+    @State private var showSetupQR = false
 
     var body: some View {
         if isEditing {
@@ -80,6 +81,12 @@ struct VerificationCodeDetailSection: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("The OTP secret will be removed from this entry.")
+        }
+        .sheet(isPresented: $showSetupQR) {
+            if let setupURL = effectiveOTPAuthLine {
+                OTPSetupQRSheet(setupURL: setupURL, entryName: entryName)
+                    .environment(appState)
+            }
         }
     }
 
@@ -177,15 +184,18 @@ struct VerificationCodeDetailSection: View {
 
                 Spacer(minLength: 8)
 
-                OTPCountdownRing(progress: fraction)
-
-                CopyableValueText(
-                    value: TOTPGenerator.formattedDisplayCode(code),
-                    isMonospaced: true,
-                    lineLimit: 1,
-                    feedbackScope: "\(entryName)-otp",
-                    onCopy: { appState.clipboard.copy(code, showToast: false) }
-                )
+                // Keep ring flush against the digits (Apple Passwords).
+                HStack(spacing: 8) {
+                    OTPCountdownRing(progress: fraction)
+                    CopyableValueText(
+                        value: TOTPGenerator.formattedDisplayCode(code),
+                        isMonospaced: true,
+                        lineLimit: 1,
+                        feedbackScope: "\(entryName)-otp",
+                        onCopy: { appState.clipboard.copy(code, showToast: false) }
+                    )
+                    .fixedSize(horizontal: true, vertical: false)
+                }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
@@ -201,9 +211,16 @@ struct VerificationCodeDetailSection: View {
     private func configuredActions(setupURL: String?) -> some View {
         HStack(spacing: 8) {
             Spacer()
-            if let setupURL {
+            if setupURL != nil {
+                Button("Show QR Code") {
+                    showSetupQR = true
+                }
+                .buttonStyle(.bordered)
+                .tint(.primary)
                 Button("Copy Setup URL") {
-                    appState.clipboard.copy(setupURL)
+                    if let setupURL {
+                        appState.clipboard.copy(setupURL)
+                    }
                 }
                 .buttonStyle(.bordered)
                 .tint(.primary)
