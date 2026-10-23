@@ -5,7 +5,6 @@ struct PasswordDetailSection: View {
     let isEditing: Bool
     @Binding var isRevealed: Bool
     var copyFeedbackScope: String?
-    var isGenerating: Bool = false
     var onCopy: () -> Void
     var onRevealToggle: () -> Void
     var onGenerate: (() -> Void)?
@@ -23,7 +22,6 @@ struct PasswordDetailSection: View {
             DetailGroupDivider()
             DetailGroupActionRow(
                 title: "Generate Password…",
-                isDisabled: isGenerating,
                 action: { onGenerate?() }
             )
         } else {

@@ -127,6 +127,15 @@ actor PassCLI {
         try await runOrThrow(args, timeout: 30)
     }
 
+    /// Copies a password entry or an entire directory tree (`pass cp`).
+    func copy(from oldName: String, to newName: String, force: Bool = true) async throws {
+        var args = ["cp"]
+        if force { args.append("-f") }
+        args.append(oldName)
+        args.append(newName)
+        try await runOrThrow(args, timeout: 120)
+    }
+
     func git(_ arguments: [String], timeout: TimeInterval = 120) async throws -> String {
         var args = ["git"] + arguments
         return try await runOrThrow(args, timeout: timeout)

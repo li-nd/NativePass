@@ -20,7 +20,7 @@ struct EntryEditorSheet: View {
     @State private var draft = EntryEditDraft.empty()
     @State private var isPasswordRevealed = false
     @State private var isSaving = false
-    @State private var isGenerating = false
+    @State private var showPasswordGenerator = false
     @State private var errorMessage: String?
 
     var body: some View {
@@ -38,10 +38,9 @@ struct EntryEditorSheet: View {
                             password: $draft.password,
                             isEditing: true,
                             isRevealed: $isPasswordRevealed,
-                            isGenerating: isGenerating,
                             onCopy: { appState.clipboard.copy(draft.password, showToast: false) },
                             onRevealToggle: { isPasswordRevealed.toggle() },
-                            onGenerate: generatePassword
+                            onGenerate: { showPasswordGenerator = true }
                         )
                     }
 
@@ -87,6 +86,17 @@ struct EntryEditorSheet: View {
                     .disabled(isSaving || !draft.isValid)
                 }
             }
+            // Push instead of nested `.sheet` — sheet-in-sheet can freeze on macOS.
+            .navigationDestination(isPresented: $showPasswordGenerator) {
+                PasswordGeneratorSheet(
+                    onUse: { password in
+                        draft.password = password
+                        isPasswordRevealed = true
+                    },
+                    embedsNavigationStack: false
+                )
+                .environment(appState)
+            }
         }
         .frame(minWidth: 440, idealWidth: 460, minHeight: 480, idealHeight: 520)
         .onAppear { populateFromMode() }
@@ -96,19 +106,6 @@ struct EntryEditorSheet: View {
         switch mode {
         case .create(let suggestedPath):
             draft = EntryEditDraft.empty(suggestedPath: suggestedPath)
-        }
-    }
-
-    private func generatePassword() {
-        isGenerating = true
-        defer { isGenerating = false }
-        do {
-            draft.password = try PasswordGenerator.generate(
-                length: AppPreferences.generatedPasswordLength
-            )
-            isPasswordRevealed = true
-        } catch {
-            errorMessage = error.localizedDescription
         }
     }
 

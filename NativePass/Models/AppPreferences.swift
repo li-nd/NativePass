@@ -25,7 +25,66 @@ enum AppPreferences {
             let stored = UserDefaults.standard.integer(forKey: "generatedPasswordLength")
             return stored == 0 ? defaultPasswordLength : stored
         }
-        set { UserDefaults.standard.set(newValue, forKey: "generatedPasswordLength") }
+        set {
+            let clamped = min(
+                max(newValue, PasswordGeneratorOptions.minimumLength),
+                PasswordGeneratorOptions.maximumLength
+            )
+            UserDefaults.standard.set(clamped, forKey: "generatedPasswordLength")
+        }
+    }
+
+    static var passwordGeneratorIncludeUppercase: Bool {
+        get { bool(forKey: "passwordGeneratorIncludeUppercase", default: true) }
+        set { UserDefaults.standard.set(newValue, forKey: "passwordGeneratorIncludeUppercase") }
+    }
+
+    static var passwordGeneratorIncludeLowercase: Bool {
+        get { bool(forKey: "passwordGeneratorIncludeLowercase", default: true) }
+        set { UserDefaults.standard.set(newValue, forKey: "passwordGeneratorIncludeLowercase") }
+    }
+
+    static var passwordGeneratorIncludeDigits: Bool {
+        get { bool(forKey: "passwordGeneratorIncludeDigits", default: true) }
+        set { UserDefaults.standard.set(newValue, forKey: "passwordGeneratorIncludeDigits") }
+    }
+
+    static var passwordGeneratorIncludeSymbols: Bool {
+        get { bool(forKey: "passwordGeneratorIncludeSymbols", default: true) }
+        set { UserDefaults.standard.set(newValue, forKey: "passwordGeneratorIncludeSymbols") }
+    }
+
+    static var passwordGeneratorAvoidAmbiguous: Bool {
+        get { bool(forKey: "passwordGeneratorAvoidAmbiguous", default: false) }
+        set { UserDefaults.standard.set(newValue, forKey: "passwordGeneratorAvoidAmbiguous") }
+    }
+
+    static var passwordGeneratorOptions: PasswordGeneratorOptions {
+        get {
+            PasswordGeneratorOptions(
+                length: generatedPasswordLength,
+                includeUppercase: passwordGeneratorIncludeUppercase,
+                includeLowercase: passwordGeneratorIncludeLowercase,
+                includeDigits: passwordGeneratorIncludeDigits,
+                includeSymbols: passwordGeneratorIncludeSymbols,
+                avoidAmbiguous: passwordGeneratorAvoidAmbiguous
+            )
+        }
+        set {
+            generatedPasswordLength = newValue.clampedLength
+            passwordGeneratorIncludeUppercase = newValue.includeUppercase
+            passwordGeneratorIncludeLowercase = newValue.includeLowercase
+            passwordGeneratorIncludeDigits = newValue.includeDigits
+            passwordGeneratorIncludeSymbols = newValue.includeSymbols
+            passwordGeneratorAvoidAmbiguous = newValue.avoidAmbiguous
+        }
+    }
+
+    private static func bool(forKey key: String, default defaultValue: Bool) -> Bool {
+        if UserDefaults.standard.object(forKey: key) == nil {
+            return defaultValue
+        }
+        return UserDefaults.standard.bool(forKey: key)
     }
 
     /// Seconds before a copied secret is cleared from the clipboard; 0 means never.

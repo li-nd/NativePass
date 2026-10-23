@@ -8,8 +8,8 @@ For fast copy or Auto-Type without the main window, use **⌥⌘P** — see [Qui
 
 - Sidebar folders mirror your store paths (including nested folders).
 - When more than one password store is configured, switch from the **Store** menu (or **Settings → Store**). See [Password stores](stores.md).
-- Right-click a folder for **Re-encrypt…**, **Get Info…**, or **Delete…** (shows a list of affected entries before confirming).
-- Right-click an entry for **Get Info…** or **Delete…**.
+- Right-click a folder for **Re-encrypt…**, **Get Info…**, **Duplicate…**, or **Delete…** (shows a list of affected entries before confirming).
+- Right-click an entry for **Get Info…**, **Duplicate…**, or **Delete…**. **Entry → Duplicate…** (**⇧⌘D**) copies the selected entry.
 - Select an entry to decrypt and view details.
 - Click a password or field to copy. Clipboard auto-clear is configurable in Settings.
 - Use **Raw** / **Form** (top-right of the detail pane) to switch between structured fields and the decrypted file as plain text. The same control works while editing. When the store is a Git repository and the entry has two or more revisions, **History** appears next to that control (view mode only). **Edit** / **Cancel** / **Save** keep the current Raw or Form mode. **⌘C** still copies only the password (first line); **⌘⇧C** copies the entire raw entry.
@@ -28,6 +28,7 @@ Focus regions (⇥ cycles **sidebar → list → search**; ⇧⇥ reverses). Whi
 | **↑** / **↓** | Move selected entry (also while search is focused) |
 | **Esc** | Clear search and focus list; or cancel editing |
 | **⌘N** | New entry |
+| **⇧⌘D** | Duplicate selected entry |
 | **⌘E** | Edit selected entry |
 | **⌘S** | Save while editing |
 | **⌘C** | Copy password (first line) |
@@ -50,7 +51,7 @@ Quick Access has its own keys (**esc**, **↑↓**, **⇥**, **↵**, **⌘↵**
 
 - **⌘N** or **+** — new entry (location, password, custom fields, optional OTP).
 - **⌘E** / **Edit** — change location, password, fields, or delete the entry. **⌘S** saves; **Esc** cancels.
-- **Generate Password…** — fills a new password.
+- **Generate Password…** — opens a generator with length, character sets, and optional “Avoid Ambiguous”; **Use** fills the password field.
 
 ![New entry](screenshots/3-new-entry.png)
 
@@ -76,6 +77,6 @@ If the store is a Git repository and an entry has two or more revisions, open it
 If the store is a Git repository:
 
 - Use **Sync** in the sidebar for **Pull**, **Push**, and **Refresh** (or **⌃⌘⇧P** / **⌃⌘P**).
-- **Settings → Sync** shows branch / ahead / behind.
+- **Settings → Sync** shows branch, **upstream** tracking, ahead / behind, and Git remotes (**Add** / edit / remove; default name `origin`). Use **Change…** to pick another remote branch, **Fetch** to refresh remote refs, or **Push and Set Upstream** for the first push.
 
 ![Git sync](screenshots/2-push.png)

@@ -113,6 +113,7 @@ private struct GitSyncPopover: View {
 
             if let status = appState.gitSync.status {
                 LabeledContent("Branch", value: status.branch ?? "—")
+                LabeledContent("Upstream", value: status.upstream ?? String(localized: "Not set"))
 
                 if !status.isClean {
                     LabeledContent("Changes", value: String(localized: "\(status.changedFilesCount) file(s)"))
@@ -130,8 +131,12 @@ private struct GitSyncPopover: View {
                             .foregroundStyle(.green)
                             .font(.caption)
                     }
+                } else if appState.gitSync.remotes.isEmpty {
+                    Text("No remotes configured. Add one in Settings → Sync.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 } else {
-                    Text("No upstream configured.")
+                    Text("No upstream configured. Set it in Settings → Sync.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -169,6 +174,22 @@ private struct GitSyncPopover: View {
                     }
                 }
                 .disabled(appState.gitSync.isSyncing || appState.appLock.isBlocking)
+
+                if let status = appState.gitSync.status,
+                   !status.hasUpstream,
+                   let remoteName = appState.gitSync.preferredUpstreamRemoteName {
+                    Button("Push -u") {
+                        guard !appState.appLock.isBlocking else { return }
+                        Task {
+                            await appState.gitSync.pushSetUpstream(
+                                using: appState.git,
+                                remote: remoteName
+                            )
+                        }
+                    }
+                    .disabled(appState.gitSync.isSyncing || appState.appLock.isBlocking)
+                    .help(String(localized: "Push and set upstream to \(remoteName)"))
+                }
 
                 Button("Refresh") {
                     Task { await appState.refreshGitStatus() }

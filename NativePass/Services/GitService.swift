@@ -16,21 +16,21 @@ struct GitService: Sendable {
         let branch = branchOutput?.trimmingCharacters(in: .whitespacesAndNewlines)
         let changedFiles = GitPorcelainParser.parse(porcelain)
 
-        let hasUpstream = await checkUpstream()
+        let upstream = await currentUpstream()
         var ahead = 0
         var behind = 0
-        if hasUpstream {
+        if upstream != nil {
             ahead = await count(["rev-list", "--count", "@{u}..HEAD"])
             behind = await count(["rev-list", "--count", "HEAD..@{u}"])
         }
 
         return GitStatus(
             branch: branch,
+            upstream: upstream,
             isClean: changedFiles.isEmpty,
             changedFiles: changedFiles,
             aheadCount: ahead,
             behindCount: behind,
-            hasUpstream: hasUpstream,
             porcelainOutput: porcelain
         )
     }
@@ -41,6 +41,87 @@ struct GitService: Sendable {
 
     func push() async throws {
         _ = try await cli.git(["push"], timeout: Self.syncTimeout)
+    }
+
+    /// First push that also sets upstream tracking (`git push -u <remote> HEAD`).
+    func pushSetUpstream(remote: String = "origin") async throws {
+        let name = remote.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else {
+            throw PassError.parseFailed(String(localized: "Remote name is empty."))
+        }
+        _ = try await cli.git(["push", "-u", name, "HEAD"], timeout: Self.syncTimeout)
+    }
+
+    func listRemotes() async throws -> [GitRemote] {
+        let output = try await cli.git(["remote", "-v"], timeout: Self.statusTimeout)
+        return GitRemoteParser.parse(output)
+    }
+
+    func addRemote(name: String, url: String) async throws {
+        let remoteName = try normalizedRemoteName(name)
+        let remoteURL = try normalizedRemoteURL(url)
+        _ = try await cli.git(["remote", "add", remoteName, remoteURL], timeout: Self.statusTimeout)
+    }
+
+    func setRemoteURL(name: String, url: String) async throws {
+        let remoteName = try normalizedRemoteName(name)
+        let remoteURL = try normalizedRemoteURL(url)
+        _ = try await cli.git(["remote", "set-url", remoteName, remoteURL], timeout: Self.statusTimeout)
+    }
+
+    func removeRemote(name: String) async throws {
+        let remoteName = try normalizedRemoteName(name)
+        _ = try await cli.git(["remote", "remove", remoteName], timeout: Self.statusTimeout)
+    }
+
+    /// Remote-tracking refs like `origin/main` (excludes `origin/HEAD`).
+    func listRemoteBranches() async throws -> [String] {
+        let output = try await cli.git(["branch", "-r", "--format=%(refname:short)"], timeout: Self.statusTimeout)
+        return output
+            .split(separator: "\n")
+            .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && !$0.hasSuffix("/HEAD") && !$0.contains(" -> ") }
+            .sorted()
+    }
+
+    func setUpstream(_ remoteBranch: String) async throws {
+        let ref = remoteBranch.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !ref.isEmpty else {
+            throw PassError.parseFailed(String(localized: "Upstream branch is empty."))
+        }
+        _ = try await cli.git(
+            ["branch", "--set-upstream-to=\(ref)"],
+            timeout: Self.statusTimeout
+        )
+    }
+
+    func unsetUpstream() async throws {
+        _ = try await cli.git(["branch", "--unset-upstream"], timeout: Self.statusTimeout)
+    }
+
+    func fetch(remote: String? = nil) async throws {
+        var args = ["fetch"]
+        if let remote {
+            let name = try normalizedRemoteName(remote)
+            args.append(name)
+        }
+        _ = try await cli.git(args, timeout: Self.syncTimeout)
+    }
+
+    private func normalizedRemoteName(_ name: String) throws -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw PassError.parseFailed(String(localized: "Remote name is empty."))
+        }
+        return trimmed
+    }
+
+    private func normalizedRemoteURL(_ url: String) throws -> String {
+        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw PassError.parseFailed(String(localized: "Remote URL is empty."))
+        }
+        return trimmed
     }
 
     /// Commit history for a pass entry (follows renames).
@@ -66,15 +147,16 @@ struct GitService: Sendable {
 
     // MARK: - Private
 
-    private func checkUpstream() async -> Bool {
+    private func currentUpstream() async -> String? {
         do {
-            _ = try await cli.git(
+            let output = try await cli.git(
                 ["rev-parse", "--abbrev-ref", "@{u}"],
                 timeout: Self.statusTimeout
             )
-            return true
+            let value = output.trimmingCharacters(in: .whitespacesAndNewlines)
+            return value.isEmpty ? nil : value
         } catch {
-            return false
+            return nil
         }
     }
 

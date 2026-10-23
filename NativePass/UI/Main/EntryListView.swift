@@ -37,6 +37,7 @@ struct EntryListView: View {
     @Binding var sortOrder: EntrySortOrder
     let onNewEntry: () -> Void
     var onGetInfoEntry: ((String) -> Void)?
+    var onDuplicateEntry: ((String) -> Void)?
     var onDeleteEntry: ((String) -> Void)?
 
     @Environment(AppState.self) private var appState
@@ -88,6 +89,9 @@ struct EntryListView: View {
                     .contextMenu {
                         Button("Get Info…") {
                             onGetInfoEntry?(entry)
+                        }
+                        Button("Duplicate…") {
+                            onDuplicateEntry?(entry)
                         }
                         Divider()
                         Button("Delete…", role: .destructive) {

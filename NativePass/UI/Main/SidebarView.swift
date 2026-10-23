@@ -10,6 +10,7 @@ struct SidebarView: View {
 
     var onReencryptFolder: (String) -> Void
     var onGetInfoFolder: (String) -> Void
+    var onDuplicateFolder: (String) -> Void
     var onDeleteFolder: (String) -> Void
 
     var body: some View {
@@ -26,6 +27,7 @@ struct SidebarView: View {
                                 selectedCategory: $selectedCategory,
                                 onReencryptFolder: onReencryptFolder,
                                 onGetInfoFolder: onGetInfoFolder,
+                                onDuplicateFolder: onDuplicateFolder,
                                 onDeleteFolder: onDeleteFolder
                             )
                         }
@@ -59,6 +61,7 @@ private struct FolderRow: View {
     @Binding var selectedCategory: SidebarSelection
     var onReencryptFolder: (String) -> Void
     var onGetInfoFolder: (String) -> Void
+    var onDuplicateFolder: (String) -> Void
     var onDeleteFolder: (String) -> Void
 
     var body: some View {
@@ -70,6 +73,7 @@ private struct FolderRow: View {
                         selectedCategory: $selectedCategory,
                         onReencryptFolder: onReencryptFolder,
                         onGetInfoFolder: onGetInfoFolder,
+                        onDuplicateFolder: onDuplicateFolder,
                         onDeleteFolder: onDeleteFolder
                     )
                 }
@@ -93,6 +97,9 @@ private struct FolderRow: View {
             }
             Button("Get Info…") {
                 onGetInfoFolder(node.id)
+            }
+            Button("Duplicate…") {
+                onDuplicateFolder(node.id)
             }
             Divider()
             Button("Delete…", role: .destructive) {

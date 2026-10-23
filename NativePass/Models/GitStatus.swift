@@ -10,12 +10,15 @@ enum GitSyncBadge: Sendable {
 
 struct GitStatus: Sendable {
     let branch: String?
+    /// Tracking ref such as `origin/main`, when configured.
+    let upstream: String?
     let isClean: Bool
     let changedFiles: [GitChangedFile]
     let aheadCount: Int
     let behindCount: Int
-    let hasUpstream: Bool
     let porcelainOutput: String
+
+    var hasUpstream: Bool { upstream != nil }
 
     var changedFilesCount: Int { changedFiles.count }
 
