@@ -499,6 +499,24 @@ final class AppState {
         try await store.renameEntry(from: oldName, to: newName)
     }
 
+    /// Duplicate an entry or folder tree (`pass cp`).
+    @MainActor
+    func duplicate(from oldName: String, to newName: String, force: Bool = true) async throws {
+        guard !appLock.isBlocking else { throw AppLockError.locked }
+        let source = oldName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let destination = newName.trimmingCharacters(in: CharacterSet(charactersIn: "/").union(.whitespacesAndNewlines))
+        guard !source.isEmpty else {
+            throw PassError.parseFailed(String(localized: "Source path is empty."))
+        }
+        guard !destination.isEmpty else {
+            throw PassError.parseFailed(String(localized: "Destination path is empty."))
+        }
+        guard source != destination else {
+            throw PassError.parseFailed(String(localized: "Destination must differ from the source."))
+        }
+        try await store.copy(from: source, to: destination, force: force)
+    }
+
     @MainActor
     func generateEntry(
         name: String,

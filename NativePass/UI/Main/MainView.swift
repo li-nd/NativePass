@@ -17,6 +17,7 @@ struct MainView: View {
     @State private var storeSetupMode: StoreKeySetupMode?
     @State private var infoTarget: StoreItemInfoTarget?
     @State private var folderPendingDelete: FolderDeleteRequest?
+    @State private var duplicateTarget: DuplicateTarget?
     @State private var folderDeleteError: String?
 
     private var folderDeleteErrorPresented: Binding<Bool> {
@@ -98,6 +99,10 @@ struct MainView: View {
                 onGetInfoFolder: { path in
                     infoTarget = .folder(path)
                 },
+                onDuplicateFolder: { path in
+                    guard !appState.appLock.isBlocking else { return }
+                    duplicateTarget = .folder(path)
+                },
                 onDeleteFolder: { path in
                     guard !appState.appLock.isBlocking else { return }
                     folderPendingDelete = FolderDeleteRequest(path: path)
@@ -124,6 +129,10 @@ struct MainView: View {
                 },
                 onGetInfoEntry: { name in
                     infoTarget = .entry(name)
+                },
+                onDuplicateEntry: { name in
+                    guard !appState.appLock.isBlocking else { return }
+                    duplicateTarget = .entry(name)
                 },
                 onDeleteEntry: { name in
                     Task { await deleteEntry(named: name) }
@@ -191,6 +200,10 @@ struct MainView: View {
                 Task { await deleteFolder(named: request.path) }
             }
         }
+        .sheet(item: $duplicateTarget) { target in
+            DuplicatePathSheet(target: target) { _ in }
+                .environment(appState)
+        }
         .alert("Error", isPresented: folderDeleteErrorPresented) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -210,7 +223,13 @@ struct MainView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .nativePassDidLock)) { _ in
             editorMode = nil
+            duplicateTarget = nil
             detailPaneController.reset()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .nativePassDuplicateEntry)) { _ in
+            guard !appState.appLock.isBlocking else { return }
+            guard let selected = appState.selectedEntry else { return }
+            duplicateTarget = .entry(selected)
         }
         .onReceive(NotificationCenter.default.publisher(for: .nativePassNewEntry)) { _ in
             guard !appState.appLock.isBlocking else { return }

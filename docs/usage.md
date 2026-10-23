@@ -8,8 +8,8 @@ For fast copy or Auto-Type without the main window, use **⌥⌘P** — see [Qui
 
 - Sidebar folders mirror your store paths (including nested folders).
 - When more than one password store is configured, switch from the **Store** menu (or **Settings → Store**). See [Password stores](stores.md).
-- Right-click a folder for **Re-encrypt…**, **Get Info…**, or **Delete…** (shows a list of affected entries before confirming).
-- Right-click an entry for **Get Info…** or **Delete…**.
+- Right-click a folder for **Re-encrypt…**, **Get Info…**, **Duplicate…**, or **Delete…** (shows a list of affected entries before confirming).
+- Right-click an entry for **Get Info…**, **Duplicate…**, or **Delete…**. **Entry → Duplicate…** (**⇧⌘D**) copies the selected entry.
 - Select an entry to decrypt and view details.
 - Click a password or field to copy. Clipboard auto-clear is configurable in Settings.
 - Use **Raw** / **Form** (top-right of the detail pane) to switch between structured fields and the decrypted file as plain text. The same control works while editing. When the store is a Git repository and the entry has two or more revisions, **History** appears next to that control (view mode only). **Edit** / **Cancel** / **Save** keep the current Raw or Form mode. **⌘C** still copies only the password (first line); **⌘⇧C** copies the entire raw entry.
@@ -28,6 +28,7 @@ Focus regions (⇥ cycles **sidebar → list → search**; ⇧⇥ reverses). Whi
 | **↑** / **↓** | Move selected entry (also while search is focused) |
 | **Esc** | Clear search and focus list; or cancel editing |
 | **⌘N** | New entry |
+| **⇧⌘D** | Duplicate selected entry |
 | **⌘E** | Edit selected entry |
 | **⌘S** | Save while editing |
 | **⌘C** | Copy password (first line) |

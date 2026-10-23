@@ -82,4 +82,9 @@ struct PassStoreService: Sendable {
     func renameEntry(from oldName: String, to newName: String) async throws {
         try await cli.move(from: oldName, to: newName)
     }
+
+    /// Copies an entry or folder tree via `pass cp`.
+    func copy(from oldName: String, to newName: String, force: Bool = true) async throws {
+        try await cli.copy(from: oldName, to: newName, force: force)
+    }
 }

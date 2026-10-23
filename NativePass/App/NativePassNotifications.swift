@@ -8,6 +8,7 @@ extension Notification.Name {
     static let nativePassCopyPassword = Notification.Name("nativePassCopyPassword")
     static let nativePassCopyRawEntry = Notification.Name("nativePassCopyRawEntry")
     static let nativePassShowHistory = Notification.Name("nativePassShowHistory")
+    static let nativePassDuplicateEntry = Notification.Name("nativePassDuplicateEntry")
     static let nativePassPasswordCopiedInline = Notification.Name("nativePassPasswordCopiedInline")
     static let nativePassLockNow = Notification.Name("nativePassLockNow")
     static let nativePassDidLock = Notification.Name("nativePassDidLock")

@@ -118,6 +118,12 @@ struct NativePassApp: App {
 
                 Divider()
 
+                Button("Duplicate…") {
+                    NotificationCenter.default.post(name: .nativePassDuplicateEntry, object: nil)
+                }
+                .keyboardShortcut("d", modifiers: [.command, .shift])
+                .disabled(isBlocking || appState.selectedEntry == nil || appState.isEditingEntry)
+
                 Button("Show History…") {
                     NotificationCenter.default.post(name: Notification.Name.nativePassShowHistory, object: nil)
                 }
