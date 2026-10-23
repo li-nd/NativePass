@@ -197,11 +197,19 @@ struct SettingsView: View {
                 Text("When hidden from the Dock, use the menu bar icon or the Quick Access hotkey to open NativePass.")
             }
 
-            Section("Passwords") {
-                Stepper("Generated length: \(passwordLength)", value: $passwordLength, in: 8...128)
-                    .onChange(of: passwordLength) { _, value in
-                        AppPreferences.generatedPasswordLength = value
-                    }
+            Section {
+                Stepper(
+                    "Default length: \(passwordLength)",
+                    value: $passwordLength,
+                    in: PasswordGeneratorOptions.minimumLength...PasswordGeneratorOptions.maximumLength
+                )
+                .onChange(of: passwordLength) { _, value in
+                    AppPreferences.generatedPasswordLength = value
+                }
+            } header: {
+                Text("Passwords")
+            } footer: {
+                Text("Character sets and other options are chosen in Generate Password… when editing an entry.")
             }
 
             Section("Clipboard") {

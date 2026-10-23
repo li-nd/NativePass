@@ -16,8 +16,8 @@ struct EntryDetailView: View {
     @State private var draft: EntryEditDraft?
     @State private var rawDraft = ""
     @State private var isSaving = false
-    @State private var isGenerating = false
     @State private var isPasswordRevealed = false
+    @State private var showPasswordGenerator = false
     @State private var showDeleteConfirm = false
     @State private var showHistory = false
     @State private var historyRevisionCount = 0
@@ -122,6 +122,13 @@ struct EntryDetailView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(actionError ?? "")
+        }
+        .sheet(isPresented: $showPasswordGenerator) {
+            PasswordGeneratorSheet { password in
+                draft?.password = password
+                isPasswordRevealed = true
+            }
+            .environment(appState)
         }
         .sheet(isPresented: $showHistory) {
             if let entry {
@@ -280,10 +287,9 @@ struct EntryDetailView: View {
                 password: draftBinding.password,
                 isEditing: true,
                 isRevealed: $isPasswordRevealed,
-                isGenerating: isGenerating,
                 onCopy: { appState.clipboard.copy(draftBinding.wrappedValue.password) },
                 onRevealToggle: togglePasswordReveal,
-                onGenerate: generatePassword
+                onGenerate: { showPasswordGenerator = true }
             )
         }
 
@@ -400,7 +406,7 @@ struct EntryDetailView: View {
         draft = nil
         rawDraft = ""
         isPasswordRevealed = false
-        isGenerating = false
+        showPasswordGenerator = false
     }
 
     private func togglePasswordReveal() {
@@ -523,18 +529,6 @@ struct EntryDetailView: View {
             if entryName == newPath {
                 await loadEntry()
             }
-        } catch {
-            actionError = error.localizedDescription
-        }
-    }
-
-    private func generatePassword() {
-        isGenerating = true
-        defer { isGenerating = false }
-        do {
-            draft?.password = try PasswordGenerator.generate(
-                length: AppPreferences.generatedPasswordLength
-            )
         } catch {
             actionError = error.localizedDescription
         }

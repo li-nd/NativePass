@@ -51,7 +51,7 @@ Quick Access has its own keys (**esc**, **↑↓**, **⇥**, **↵**, **⌘↵**
 
 - **⌘N** or **+** — new entry (location, password, custom fields, optional OTP).
 - **⌘E** / **Edit** — change location, password, fields, or delete the entry. **⌘S** saves; **Esc** cancels.
-- **Generate Password…** — fills a new password.
+- **Generate Password…** — opens a generator with length, character sets, and optional “Avoid Ambiguous”; **Use** fills the password field.
 
 ![New entry](screenshots/3-new-entry.png)
 
